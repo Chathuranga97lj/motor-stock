@@ -16,7 +16,11 @@ class PartFormScreen extends StatefulWidget {
     this.part,
     required this.branches,
     this.branchId,
+    this.isSuperAdmin = false,
   });
+
+  /// Only a super admin can delete parts and transfer stock.
+  final bool isSuperAdmin;
 
   /// Null when adding a new part.
   final Part? part;
@@ -238,7 +242,8 @@ class _PartFormScreenState extends State<PartFormScreen> {
   }
 
   Widget _buildScaffold(BuildContext context) {
-    final canTransfer = _isEdit && widget.branches.length > 1;
+    final canTransfer =
+        widget.isSuperAdmin && _isEdit && widget.branches.length > 1;
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit part' : 'Add part'),
@@ -249,7 +254,7 @@ class _PartFormScreenState extends State<PartFormScreen> {
               icon: const Icon(Icons.local_shipping_outlined),
               onPressed: _saving ? null : _transfer,
             ),
-          if (_isEdit)
+          if (_isEdit && widget.isSuperAdmin)
             IconButton(
               tooltip: 'Delete',
               icon: const Icon(Icons.delete_outline),
