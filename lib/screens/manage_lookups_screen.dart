@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/services.dart';
+
+import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/lookup.dart';
 import '../models/purchase.dart';
+import '../services/bill_service.dart';
 import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/purchase_service.dart';
+import '../utils/money.dart';
 import '../widgets/lookup_widgets.dart';
 
 /// Add, rename and delete categories, brands and bike models;
@@ -21,9 +26,11 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   final _service = LookupService();
   final _branchService = BranchService();
   final _purchaseService = PurchaseService();
+  final _billService = BillService();
   Lookups _lookups = const Lookups();
   List<Branch> _branches = [];
   List<Supplier> _suppliers = [];
+  List<ServiceItem> _serviceItems = [];
   bool _loading = true;
   String? _error;
 
@@ -35,16 +42,18 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
 
   Future<void> _load() async {
     try {
-      final (lookups, branches, suppliers) = await (
+      final (lookups, branches, suppliers, serviceItems) = await (
         _service.fetchAll(),
         _branchService.fetchBranches(),
         _purchaseService.fetchSuppliers(),
+        _billService.fetchServices(includeInactive: true),
       ).wait;
       if (mounted) {
         setState(() {
           _lookups = lookups;
           _branches = branches;
           _suppliers = suppliers;
+          _serviceItems = serviceItems;
           _error = null;
         });
       }
@@ -124,7 +133,7 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: LookupKind.values.length + 2,
+      length: LookupKind.values.length + 3,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Lists & branches'),
@@ -138,6 +147,7 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
               for (final k in LookupKind.values) Tab(text: k.pluralLabel),
               const Tab(text: 'Branches'),
               const Tab(text: 'Suppliers'),
+              const Tab(text: 'Services'),
             ],
           ),
         ),
@@ -151,9 +161,124 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
                     _modelsList(),
                     _branchesList(),
                     _suppliersList(),
+                    _servicesList(),
                   ]),
       ),
     );
+  }
+
+  Widget _servicesList() {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        _addTile('Add service', () => _editService(null)),
+        const Divider(height: 1),
+        for (final s in _serviceItems)
+          ListTile(
+            leading: Icon(Icons.build_outlined,
+                color: s.active ? null : Theme.of(context).disabledColor),
+            title: Text(s.name),
+            subtitle: Text(
+                '${formatMoney(s.defaultPrice)}${s.active ? '' : ' • hidden from bills'}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Edit',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editService(s),
+                ),
+                IconButton(
+                  tooltip: 'Delete',
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _deleteService(s),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Adds a service when [s] is null, otherwise edits it.
+  Future<void> _editService(ServiceItem? s) async {
+    final name = TextEditingController(text: s?.name);
+    final price = TextEditingController(
+        text: s == null ? '' : s.defaultPrice.toStringAsFixed(2));
+    var active = s?.active ?? true;
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(s == null ? 'New service' : 'Edit service'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                autofocus: s == null,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: 'Name *'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: price,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                ],
+                decoration: InputDecoration(
+                  labelText: 'Standard charge ($currencySymbol)',
+                  helperText: 'Can be changed on each bill',
+                ),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Show on bills'),
+                value: active,
+                onChanged: (v) => setDialogState(() => active = v),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    final v = (name.text, double.tryParse(price.text) ?? 0);
+    name.dispose();
+    price.dispose();
+    if (save != true || v.$1.trim().isEmpty) return;
+    await _run(() =>
+        _billService.saveService(s, name: v.$1, price: v.$2, active: active));
+  }
+
+  Future<void> _deleteService(ServiceItem s) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete "${s.name}"?'),
+        content: const Text('Old bills keep the service name and charge. '
+            'To keep it but stop offering it, edit it and turn off '
+            '"Show on bills" instead.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (ok == true) await _run(() => _billService.deleteService(s));
   }
 
   Widget _suppliersList() {

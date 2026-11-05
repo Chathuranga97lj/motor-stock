@@ -101,7 +101,7 @@ class _ToCollectScreenState extends State<ToCollectScreen> {
               keyboardType: TextInputType.text,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
-                hintText: 'Customer name or phone',
+                hintText: 'Customer name, phone or bike no',
                 isDense: true,
               ),
               onChanged: (_) {
@@ -141,6 +141,7 @@ class _ToCollectScreenState extends State<ToCollectScreen> {
             title: Text(b.customerName ?? '(no name)'),
             subtitle: Text([
               if (b.customerPhone != null) b.customerPhone!,
+              if (b.bikeNo != null) b.bikeNo!,
               b.billNo,
               days == 0 ? 'today' : '$days day${days == 1 ? '' : 's'} ago',
               if (b.paymentStatus == PaymentStatus.partial)

@@ -22,6 +22,7 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    - [`supabase/005_bills.sql`](supabase/005_bills.sql) adds bills: numbering per branch (`IBB-000001`, `MEL-000001`), stock taken off when a bill is saved, and put back when a super admin cancels it. Afterwards add each branch's address and phone in **⋮ → Lists & branches → Branches** so they print on bills.
    - [`supabase/006_bill_payments.sql`](supabase/006_bill_payments.sql) adds credit and part payments: **Amount paid now** on a bill, **Record payment** later, the **To collect** list, and Sales vs Collected totals. Existing bills are marked fully paid.
    - [`supabase/007_purchases.sql`](supabase/007_purchases.sql) adds suppliers and **Stock in**: supplier, invoice number and date, unit costs, paid now or later, **To pay suppliers**, and stock-in history.
+   - [`supabase/008_bill_services.sql`](supabase/008_bill_services.sql) adds bike service charges to bills (parts only, service only, or both), the bike number, a **Services** list with standard charges, and the Parts vs Service split in bill history.
 3. **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**. Only you will be able to add staff accounts.
 4. **Deploy the `create-user` Edge Function** so the super admin can add logins from the app:
    1. Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
@@ -104,6 +105,7 @@ supabase/004_user_roles.sql                 super admin / admin roles and access
 supabase/005_bills.sql                      bills, bill items, create_bill / cancel_bill
 supabase/006_bill_payments.sql              payments, credit bills, add_bill_payment
 supabase/007_purchases.sql                  suppliers, stock-ins, supplier payments
+supabase/008_bill_services.sql              service charges on bills, services list
 supabase/functions/create-user/index.ts     Edge Function: create a login with a role
 ```
 

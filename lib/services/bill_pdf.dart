@@ -54,7 +54,7 @@ Future<Uint8List> buildBillPdf(Bill bill) async {
           ),
         _details(bill, small, bold),
         pw.SizedBox(height: 10),
-        _itemsTable(bill),
+        _itemsTables(bill),
         pw.SizedBox(height: 8),
         _totals(bill, bold),
         if (bill.payments.isNotEmpty) ...[
@@ -150,6 +150,7 @@ pw.Widget _details(Bill bill, pw.TextStyle small, pw.TextStyle bold) {
         child: pw.Column(children: [
           pair('Date', formatDateTime(bill.createdAt)),
           pair('Payment', bill.cancelled ? '-' : bill.paymentStatus.label),
+          if (bill.bikeNo != null) pair('Bike no', bill.bikeNo!),
         ]),
       ),
       pw.SizedBox(width: 12),
@@ -163,15 +164,44 @@ pw.Widget _details(Bill bill, pw.TextStyle small, pw.TextStyle bold) {
   );
 }
 
-pw.Widget _itemsTable(Bill bill) {
+/// Parts and service lines as separate tables; a section title is shown only
+/// when the bill has both.
+pw.Widget _itemsTables(Bill bill) {
+  final parts = bill.partItems;
+  final services = bill.serviceItems;
+  final both = parts.isNotEmpty && services.isNotEmpty;
+  pw.Widget title(String t) => pw.Padding(
+        padding: const pw.EdgeInsets.only(top: 6, bottom: 3),
+        child: pw.Text(t,
+            style: pw.TextStyle(
+                fontSize: 9, fontWeight: pw.FontWeight.bold, color: _navy)),
+      );
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+    children: [
+      if (parts.isNotEmpty) ...[
+        if (both) title('PARTS'),
+        _itemsTable(parts, firstNo: 1, itemHeader: 'Item'),
+      ],
+      if (services.isNotEmpty) ...[
+        if (both) title('SERVICE / LABOUR'),
+        _itemsTable(services,
+            firstNo: parts.length + 1, itemHeader: 'Service'),
+      ],
+    ],
+  );
+}
+
+pw.Widget _itemsTable(List<BillItem> items,
+    {required int firstNo, required String itemHeader}) {
   const head = pw.TextStyle(fontSize: 8, color: PdfColors.white);
   const cell = pw.TextStyle(fontSize: 9);
   return pw.TableHelper.fromTextArray(
-    headers: ['#', 'Item', 'Qty', 'Price', 'Amount'],
+    headers: ['#', itemHeader, 'Qty', 'Price', 'Amount'],
     data: [
-      for (final (i, item) in bill.items.indexed)
+      for (final (i, item) in items.indexed)
         [
-          '${i + 1}',
+          '${firstNo + i}',
           item.partNo == null ? item.partName : '${item.partName}\n${item.partNo}',
           '${item.quantity}',
           formatMoney(item.unitPrice, symbol: false),
@@ -229,8 +259,11 @@ pw.Widget _totals(Bill bill, pw.TextStyle bold) {
     child: pw.SizedBox(
       width: 170,
       child: pw.Column(children: [
-        row('Items', '${bill.itemCount}'),
-        row('Subtotal', formatMoney(bill.subtotal)),
+        if (bill.partItems.isNotEmpty && bill.serviceItems.isNotEmpty) ...[
+          row('Parts', formatMoney(bill.partsTotal)),
+          row('Service', formatMoney(bill.servicesTotal)),
+        ] else
+          row('Subtotal', formatMoney(bill.subtotal)),
         if (bill.discount > 0) row('Discount', '- ${formatMoney(bill.discount)}'),
         pw.Divider(color: _navy, thickness: 1),
         row('TOTAL', formatMoney(bill.total), strong: true),
