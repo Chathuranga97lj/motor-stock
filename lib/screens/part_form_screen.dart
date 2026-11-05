@@ -2,17 +2,28 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/branch.dart';
 import '../models/lookup.dart';
 import '../models/part.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
 import '../widgets/lookup_widgets.dart';
+import '../widgets/transfer_sheet.dart';
 
 class PartFormScreen extends StatefulWidget {
-  const PartFormScreen({super.key, this.part});
+  const PartFormScreen({
+    super.key,
+    this.part,
+    required this.branches,
+    this.branchId,
+  });
 
   /// Null when adding a new part.
   final Part? part;
+  final List<Branch> branches;
+
+  /// The branch the user is working in; transfers start from here.
+  final String? branchId;
 
   @override
   State<PartFormScreen> createState() => _PartFormScreenState();
@@ -30,8 +41,12 @@ class _PartFormScreenState extends State<PartFormScreen> {
   late String? _brandId = widget.part?.brandId;
   late String? _modelId = widget.part?.bikeModelId;
   Lookups _lookups = const Lookups();
-  late final _quantity =
-      TextEditingController(text: '${widget.part?.quantity ?? 0}');
+  // Stock as last saved, and the editable quantity per branch.
+  late Map<String, int> _savedStock = {...?widget.part?.stock};
+  late final Map<String, TextEditingController> _quantities = {
+    for (final b in widget.branches)
+      b.id: TextEditingController(text: '${_savedStock[b.id] ?? 0}'),
+  };
   late final _buyPrice = TextEditingController(
       text: widget.part?.buyPrice.toStringAsFixed(2) ?? '');
   late final _sellPrice = TextEditingController(
@@ -43,6 +58,8 @@ class _PartFormScreenState extends State<PartFormScreen> {
   final List<PartImage> _removedImages = [];
   final List<NewImage> _newImages = [];
   bool _saving = false;
+  // True once a transfer was made, so the list reloads even without saving.
+  bool _changedStock = false;
 
   bool get _isEdit => widget.part != null;
   int get _imageCount => _existingImages.length + _newImages.length;
@@ -55,11 +72,47 @@ class _PartFormScreenState extends State<PartFormScreen> {
 
   @override
   void dispose() {
-    for (final c in [_name, _partNo, _quantity, _buyPrice, _sellPrice, _lowStock]) {
+    for (final c in [
+      _name, _partNo, _buyPrice, _sellPrice, _lowStock, //
+      ..._quantities.values,
+    ]) {
       c.dispose();
     }
     super.dispose();
   }
+
+  Future<void> _transfer() async {
+    final result = await showTransferSheet(
+      context,
+      part: widget.part!.withStock(_savedStock),
+      branches: widget.branches,
+      fromBranchId: widget.branchId,
+    );
+    if (result == null || !mounted) return;
+    // Apply the move to both the saved stock and the fields on screen.
+    void move(String branchId, int delta) {
+      _savedStock[branchId] = (_savedStock[branchId] ?? 0) + delta;
+      final field = _quantities[branchId]!;
+      field.text = '${(int.tryParse(field.text) ?? 0) + delta}';
+    }
+
+    setState(() {
+      _savedStock = {..._savedStock};
+      move(result.fromBranchId, -result.quantity);
+      move(result.toBranchId, result.quantity);
+      _changedStock = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Transferred ${result.quantity}')));
+  }
+
+  /// Branch quantities that differ from what is saved (all of them for a new part).
+  Map<String, int> _stockToSave() => {
+        for (final e in _quantities.entries)
+          if (!_isEdit ||
+              int.parse(e.value.text) != (_savedStock[e.key] ?? 0))
+            e.key: int.parse(e.value.text),
+      };
 
   Future<void> _loadLookups() async {
     try {
@@ -120,7 +173,6 @@ class _PartFormScreenState extends State<PartFormScreen> {
       categoryId: _categoryId,
       brandId: _brandId,
       bikeModelId: _brandId == null ? null : _modelId,
-      quantity: int.parse(_quantity.text),
       buyPrice: double.tryParse(_buyPrice.text) ?? 0,
       sellPrice: double.tryParse(_sellPrice.text) ?? 0,
       lowStockLevel: int.tryParse(_lowStock.text) ?? 0,
@@ -129,7 +181,9 @@ class _PartFormScreenState extends State<PartFormScreen> {
 
     try {
       await _service.savePart(part,
-          removedImages: _removedImages, newImages: _newImages);
+          stock: _stockToSave(),
+          removedImages: _removedImages,
+          newImages: _newImages);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
@@ -173,10 +227,28 @@ class _PartFormScreenState extends State<PartFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // After a transfer, going back still tells the list to reload.
+    return PopScope(
+      canPop: !_changedStock,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.of(context).pop(true);
+      },
+      child: _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
+    final canTransfer = _isEdit && widget.branches.length > 1;
     return Scaffold(
       appBar: AppBar(
         title: Text(_isEdit ? 'Edit part' : 'Add part'),
         actions: [
+          if (canTransfer)
+            IconButton(
+              tooltip: 'Transfer stock',
+              icon: const Icon(Icons.local_shipping_outlined),
+              onPressed: _saving ? null : _transfer,
+            ),
           if (_isEdit)
             IconButton(
               tooltip: 'Delete',
@@ -222,11 +294,8 @@ class _PartFormScreenState extends State<PartFormScreen> {
                     ? null
                     : (id) => setState(() => _modelId = id),
               ),
-              Row(children: [
-                Expanded(child: _intField(_quantity, 'Quantity *')),
-                const SizedBox(width: 12),
-                Expanded(child: _intField(_lowStock, 'Low stock alert at')),
-              ]),
+              _buildStock(canTransfer),
+              _intField(_lowStock, 'Low stock alert at (per branch)'),
               Row(children: [
                 Expanded(child: _priceField(_buyPrice, 'Buy price')),
                 const SizedBox(width: 12),
@@ -246,6 +315,41 @@ class _PartFormScreenState extends State<PartFormScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStock(bool canTransfer) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                  child: Text('Stock by branch',
+                      style: theme.textTheme.titleSmall)),
+              if (canTransfer)
+                TextButton.icon(
+                  onPressed: _saving ? null : _transfer,
+                  icon: const Icon(Icons.local_shipping_outlined),
+                  label: const Text('Transfer'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (widget.branches.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text('No branches found. Run the branches SQL migration.',
+                  style: TextStyle(color: theme.colorScheme.error)),
+            ),
+          for (final b in widget.branches)
+            _intField(_quantities[b.id]!,
+                '${b.name}${b.isMain ? ' (main)' : ''} quantity'),
+        ],
       ),
     );
   }

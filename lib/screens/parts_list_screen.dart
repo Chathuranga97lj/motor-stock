@@ -3,12 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/branch.dart';
 import '../models/lookup.dart';
 import '../models/part.dart';
+import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
+import '../widgets/transfer_sheet.dart';
 import 'manage_lookups_screen.dart';
 import 'part_form_screen.dart';
+import 'transfers_screen.dart';
 
 class PartsListScreen extends StatefulWidget {
   const PartsListScreen({super.key});
@@ -20,10 +24,14 @@ class PartsListScreen extends StatefulWidget {
 class _PartsListScreenState extends State<PartsListScreen> {
   final _service = PartsService();
   final _lookupService = LookupService();
+  final _branchService = BranchService();
   final _searchController = TextEditingController();
   Timer? _debounce;
   List<Part> _parts = [];
   Lookups _lookups = const Lookups();
+  List<Branch> _branches = [];
+  // The branch this device is working in.
+  String? _branchId;
   // Active filters, keyed by list kind.
   final Map<LookupKind, String?> _filters = {};
   bool _loading = true;
@@ -33,8 +41,66 @@ class _PartsListScreenState extends State<PartsListScreen> {
   @override
   void initState() {
     super.initState();
+    _loadBranches();
     _loadLookups();
     _load();
+  }
+
+  Branch? get _branch => _branches.where((b) => b.id == _branchId).firstOrNull;
+
+  Future<void> _loadBranches() async {
+    try {
+      final branches = await _branchService.fetchBranches();
+      final saved = _branchId ?? await _branchService.loadSelectedBranchId();
+      if (!mounted) return;
+      setState(() {
+        _branches = branches;
+        _branchId = branches.any((b) => b.id == saved)
+            ? saved
+            : branches.firstOrNull?.id; // main branch comes first
+      });
+    } catch (_) {
+      // The stock list shows its own error if the database is unreachable.
+    }
+  }
+
+  Future<void> _pickBranch() async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Working in branch')),
+            for (final b in _branches)
+              ListTile(
+                leading: Icon(b.isMain ? Icons.store : Icons.storefront_outlined),
+                title: Text(b.name),
+                subtitle: b.isMain ? const Text('Main branch') : null,
+                selected: b.id == _branchId,
+                onTap: () => Navigator.pop(context, b.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (picked == null || picked == _branchId) return;
+    setState(() => _branchId = picked);
+    _branchService.saveSelectedBranchId(picked);
+  }
+
+  Future<void> _transfer(Part part) async {
+    if (_branches.length < 2) return;
+    final done = await showTransferSheet(context,
+        part: part, branches: _branches, fromBranchId: _branchId);
+    if (done != null) _load();
+  }
+
+  Future<void> _openTransfers() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TransfersScreen()),
+    );
   }
 
   Future<void> _loadLookups() async {
@@ -100,6 +166,7 @@ class _PartsListScreenState extends State<PartsListScreen> {
       MaterialPageRoute(builder: (_) => const ManageLookupsScreen()),
     );
     await _loadLookups();
+    await _loadBranches();
     _load();
   }
 
@@ -137,16 +204,19 @@ class _PartsListScreenState extends State<PartsListScreen> {
 
   Future<void> _openForm([Part? part]) async {
     final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => PartFormScreen(part: part)),
+      MaterialPageRoute(
+        builder: (_) => PartFormScreen(
+            part: part, branches: _branches, branchId: _branchId),
+      ),
     );
-    // The form may have added categories, brands or models.
-    await _loadLookups();
     if (changed == true) _load();
   }
 
   Future<void> _adjust(Part part, int delta) async {
+    final branchId = _branchId;
+    if (branchId == null) return;
     try {
-      await _service.adjustQuantity(part, delta);
+      await _branchService.adjustStock(part.id!, branchId, delta);
       await _load();
     } catch (e) {
       if (mounted) {
@@ -158,9 +228,9 @@ class _PartsListScreenState extends State<PartsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visible =
-        _lowStockOnly ? _parts.where((p) => p.isLowStock).toList() : _parts;
-    final lowCount = _parts.where((p) => p.isLowStock).length;
+    final low = _parts.where((p) => p.isLowStockAt(_branchId)).toList();
+    final visible = _lowStockOnly ? low : _parts;
+    final lowCount = low.length;
 
     return Scaffold(
       appBar: AppBar(
@@ -173,14 +243,29 @@ class _PartsListScreenState extends State<PartsListScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Categories, brands & models',
-            icon: const Icon(Icons.list_alt),
-            onPressed: _openManageLists,
+            tooltip: 'Transfer history',
+            icon: const Icon(Icons.swap_horiz),
+            onPressed: _openTransfers,
           ),
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => Supabase.instance.client.auth.signOut(),
+          PopupMenuButton<VoidCallback>(
+            tooltip: 'More',
+            onSelected: (action) => action(),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: _openManageLists,
+                child: const ListTile(
+                  leading: Icon(Icons.list_alt),
+                  title: Text('Lists & branches'),
+                ),
+              ),
+              PopupMenuItem(
+                value: () => Supabase.instance.client.auth.signOut(),
+                child: const ListTile(
+                  leading: Icon(Icons.logout),
+                  title: Text('Sign out'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -191,6 +276,34 @@ class _PartsListScreenState extends State<PartsListScreen> {
       ),
       body: Column(
         children: [
+          Material(
+            color: Theme.of(context).colorScheme.primaryContainer,
+            child: InkWell(
+              onTap: _branches.length > 1 ? _pickBranch : null,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place_outlined, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text.rich(TextSpan(children: [
+                        const TextSpan(text: 'Branch: '),
+                        TextSpan(
+                          text: _branch?.name ?? '…',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ])),
+                    ),
+                    if (_branches.length > 1) ...[
+                      const Text('Change'),
+                      const Icon(Icons.arrow_drop_down),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: TextField(
@@ -280,10 +393,13 @@ class _PartsListScreenState extends State<PartsListScreen> {
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) => _PartTile(
           part: parts[i],
+          branchId: _branchId,
+          otherBranches: _branches.where((b) => b.id != _branchId).toList(),
           imageUrl: parts[i].images.isEmpty
               ? null
               : _service.imageUrl(parts[i].images.first),
           onTap: () => _openForm(parts[i]),
+          onLongPress: () => _transfer(parts[i]),
           onAdjust: (delta) => _adjust(parts[i], delta),
         ),
       ),
@@ -294,19 +410,27 @@ class _PartsListScreenState extends State<PartsListScreen> {
 class _PartTile extends StatelessWidget {
   const _PartTile({
     required this.part,
+    required this.branchId,
+    required this.otherBranches,
     required this.imageUrl,
     required this.onTap,
+    required this.onLongPress,
     required this.onAdjust,
   });
 
   final Part part;
+  final String? branchId;
+  final List<Branch> otherBranches;
   final String? imageUrl;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
   final ValueChanged<int> onAdjust;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final quantity = part.quantityAt(branchId);
+    final isLow = part.isLowStockAt(branchId);
     final subtitle = [
       part.partNo,
       [part.brandName, part.bikeModelName].whereType<String>().join(' '),
@@ -315,9 +439,13 @@ class _PartTile extends StatelessWidget {
         .whereType<String>()
         .where((s) => s.isNotEmpty)
         .join(' • ');
+    final elsewhere = [
+      for (final b in otherBranches) '${b.name} ${part.quantityAt(b.id)}',
+    ].join(' • ');
 
     return ListTile(
       onTap: onTap,
+      onLongPress: onLongPress,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: SizedBox(
@@ -336,30 +464,29 @@ class _PartTile extends StatelessWidget {
       title: Text(part.name),
       subtitle: Text(
         '${subtitle.isEmpty ? '' : '$subtitle\n'}'
-        'Price ${part.sellPrice.toStringAsFixed(2)}',
+        'Price ${part.sellPrice.toStringAsFixed(2)}'
+        '${elsewhere.isEmpty ? '' : '\nOther: $elsewhere'}',
       ),
-      isThreeLine: subtitle.isNotEmpty,
+      isThreeLine: subtitle.isNotEmpty || elsewhere.isNotEmpty,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             tooltip: 'Remove one',
             icon: const Icon(Icons.remove_circle_outline),
-            onPressed: part.quantity > 0 ? () => onAdjust(-1) : null,
+            onPressed: quantity > 0 ? () => onAdjust(-1) : null,
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: part.isLowStock
-                  ? scheme.errorContainer
-                  : scheme.secondaryContainer,
+              color: isLow ? scheme.errorContainer : scheme.secondaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              '${part.quantity}',
+              '$quantity',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: part.isLowStock
+                color: isLow
                     ? scheme.onErrorContainer
                     : scheme.onSecondaryContainer,
               ),
