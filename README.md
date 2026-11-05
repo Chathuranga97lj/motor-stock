@@ -20,7 +20,14 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
      on conflict (user_id) do update set role = 'super_admin', branch_id = null;
      ```
 3. **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**. Only you will be able to add staff accounts.
-4. **Authentication → Users → Add user**: create an account (email and password) for each staff member. Then, in the app, open **⋮ → Users** as super admin and give each account a role:
+4. **Deploy the `create-user` Edge Function** so the super admin can add logins from the app:
+   1. Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+   2. Name it exactly `create-user`.
+   3. Replace the sample code with the contents of [`supabase/functions/create-user/index.ts`](supabase/functions/create-user/index.ts) and click **Deploy**.
+   
+   Leave **Verify JWT** on. The function uses the secret key that Supabase provides on its server; the app never sees it.
+
+   Then, in the app, open **⋮ → Users → Add user** as super admin. You can also still add logins under **Authentication → Users → Add user** in the dashboard and give them a role on the Users screen.
 
    | | Super admin | Admin |
    |---|---|---|
@@ -55,6 +62,7 @@ lib/
   models/profile.dart             user roles
   services/profile_service.dart   signed-in role, list users, set roles
   screens/users_screen.dart       super admin assigns roles and branches
+  screens/add_user_screen.dart    super admin creates a login with role and branch
   services/parts_service.dart     CRUD, image upload and delete
   services/lookup_service.dart    add, rename, delete list entries
   services/branch_service.dart    branches, per-branch stock, transfers
@@ -69,6 +77,7 @@ supabase/schema.sql                         base tables and storage
 supabase/002_categories_brands_models.sql   dropdown lists
 supabase/003_branches_stock_transfers.sql   branches, stock per branch, transfers
 supabase/004_user_roles.sql                 super admin / admin roles and access rules
+supabase/functions/create-user/index.ts     Edge Function: create a login with a role
 ```
 
 Photos are resized to a maximum of 1280 px at JPEG quality 75 when picked, so each is roughly 100–300 KB. At that size, the 1 GB free storage holds about 1,500 or more parts with 3 photos each.
