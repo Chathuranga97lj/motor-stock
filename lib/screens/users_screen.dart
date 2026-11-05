@@ -5,9 +5,10 @@ import '../models/branch.dart';
 import '../models/profile.dart';
 import '../services/branch_service.dart';
 import '../services/profile_service.dart';
+import 'add_user_screen.dart';
 
-/// Super admin: give each sign-in account a role and, for admins, a branch.
-/// New accounts are created in the Supabase dashboard (Authentication > Users).
+/// Super admin: add sign-in accounts and give each a role and, for admins,
+/// a branch.
 class UsersScreen extends StatefulWidget {
   const UsersScreen({super.key});
 
@@ -66,10 +67,24 @@ class _UsersScreenState extends State<UsersScreen> {
     }
   }
 
+  Future<void> _add() async {
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => AddUserScreen(branches: _branches)),
+    );
+    if (added == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Users')),
+      floatingActionButton: _loading || _error != null
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _add,
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Add user'),
+            ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -82,17 +97,12 @@ class _UsersScreenState extends State<UsersScreen> {
               : RefreshIndicator(
                   onRefresh: _load,
                   child: ListView(
+                    padding: const EdgeInsets.only(bottom: 88),
                     children: [
-                      const ListTile(
-                        leading: Icon(Icons.info_outline),
-                        title: Text('Adding a new login'),
-                        subtitle: Text(
-                            'Create it in Supabase: Authentication > Users > '
-                            'Add user. Then pull down here to refresh and '
-                            'give it a role.'),
-                      ),
-                      const Divider(height: 1),
-                      for (final u in _users) _tile(u),
+                      for (final u in _users) ...[
+                        _tile(u),
+                        const Divider(height: 1),
+                      ],
                     ],
                   ),
                 ),

@@ -26,6 +26,31 @@ class ProfileService {
     return rows.cast<Map<String, dynamic>>().map(AppUser.fromJson).toList();
   }
 
+  /// Creates a sign-in account with a role, via the `create-user` Edge Function.
+  Future<void> createUser({
+    required String email,
+    required String password,
+    required UserRole role,
+    String? branchId,
+  }) async {
+    try {
+      await _db.functions.invoke('create-user', body: {
+        'email': email.trim(),
+        'password': password,
+        'role': role.value,
+        'branch_id': branchId,
+      });
+    } on FunctionException catch (e) {
+      final details = e.details;
+      final message = details is Map && details['error'] != null
+          ? '${details['error']}'
+          : e.status == 404
+              ? 'The create-user function is not deployed in Supabase yet'
+              : 'Could not add user (error ${e.status})';
+      throw Exception(message);
+    }
+  }
+
   /// Sets [userId]'s role. A null [role] removes their access.
   Future<void> setUserRole(String userId, UserRole? role,
       {String? branchId}) async {
