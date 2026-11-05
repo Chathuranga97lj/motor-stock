@@ -408,7 +408,10 @@ class _NewBillScreenState extends State<NewBillScreen> {
         );
     return Material(
       elevation: 8,
-      color: theme.colorScheme.surfaceContainer,
+      color: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       child: SafeArea(
         top: false,
         child: Padding(

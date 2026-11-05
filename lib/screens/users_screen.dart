@@ -5,6 +5,7 @@ import '../models/branch.dart';
 import '../models/profile.dart';
 import '../services/branch_service.dart';
 import '../services/profile_service.dart';
+import '../theme.dart';
 import 'add_user_screen.dart';
 
 /// Super admin: add sign-in accounts and give each a role and, for admins,
@@ -34,8 +35,10 @@ class _UsersScreenState extends State<UsersScreen> {
 
   Future<void> _load() async {
     try {
-      final (users, branches) =
-          await (_service.listUsers(), _branchService.fetchBranches()).wait;
+      final (users, branches) = await (
+        _service.listUsers(),
+        _branchService.fetchBranches(),
+      ).wait;
       if (mounted) {
         setState(() {
           _users = users;
@@ -57,13 +60,17 @@ class _UsersScreenState extends State<UsersScreen> {
     );
     if (result == null) return;
     try {
-      await _service.setUserRole(user.id, result.role,
-          branchId: result.branchId);
+      await _service.setUserRole(
+        user.id,
+        result.role,
+        branchId: result.branchId,
+      );
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$e'.replaceFirst('Exception: ', ''))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+      );
     }
   }
 
@@ -88,24 +95,21 @@ class _UsersScreenState extends State<UsersScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.only(bottom: 88),
-                    children: [
-                      for (final u in _users) ...[
-                        _tile(u),
-                        const Divider(height: 1),
-                      ],
-                    ],
-                  ),
-                ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(_error!, textAlign: TextAlign.center),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.only(bottom: 88),
+                children: [
+                  for (final u in _users) ...[TileCard(child: _tile(u))],
+                ],
+              ),
+            ),
     );
   }
 
@@ -147,7 +151,8 @@ class _RoleDialog extends StatefulWidget {
 
 class _RoleDialogState extends State<_RoleDialog> {
   late UserRole? _role = widget.user.role;
-  late String? _branchId = widget.user.branchId ??
+  late String? _branchId =
+      widget.user.branchId ??
       widget.branches.where((b) => b.isMain).firstOrNull?.id;
 
   @override
@@ -200,14 +205,15 @@ class _RoleDialogState extends State<_RoleDialog> {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         FilledButton(
           onPressed: canSave
               ? () => Navigator.pop<_RoleChoice>(context, (
-                    role: _role,
-                    branchId: _role == UserRole.admin ? _branchId : null,
-                  ))
+                  role: _role,
+                  branchId: _role == UserRole.admin ? _branchId : null,
+                ))
               : null,
           child: const Text('Save'),
         ),

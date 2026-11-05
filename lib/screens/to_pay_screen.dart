@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/bill.dart';
 import '../models/purchase.dart';
 import '../services/purchase_service.dart';
+import '../theme.dart';
 import '../utils/money.dart';
 import 'purchase_detail_screen.dart';
 
@@ -44,9 +45,12 @@ class _ToPayScreenState extends State<ToPayScreen> {
   }
 
   Future<void> _open(Purchase p) async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => PurchaseDetailScreen(purchaseId: p.id, isSuperAdmin: true),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            PurchaseDetailScreen(purchaseId: p.id, isSuperAdmin: true),
+      ),
+    );
     _load();
   }
 
@@ -73,15 +77,21 @@ class _ToPayScreenState extends State<ToPayScreen> {
             margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             color: theme.colorScheme.errorContainer,
             child: ListTile(
-              leading: Icon(Icons.local_shipping_outlined,
-                  color: theme.colorScheme.onErrorContainer),
-              title: Text(formatMoney(owed),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onErrorContainer)),
+              leading: Icon(
+                Icons.local_shipping_outlined,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+              title: Text(
+                formatMoney(owed),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onErrorContainer,
+                ),
+              ),
               subtitle: Text(
-                  '${_purchases.length} invoices • ${groups.length} suppliers • all branches',
-                  style: TextStyle(color: theme.colorScheme.onErrorContainer)),
+                '${_purchases.length} invoices • ${groups.length} suppliers • all branches',
+                style: TextStyle(color: theme.colorScheme.onErrorContainer),
+              ),
             ),
           ),
           if (_loading) const LinearProgressIndicator(),
@@ -94,49 +104,69 @@ class _ToPayScreenState extends State<ToPayScreen> {
                     ),
                   )
                 : groups.isEmpty && !_loading
-                    ? const Center(child: Text('Nothing owed to suppliers 🎉'))
-                    : RefreshIndicator(
-                        onRefresh: _load,
-                        child: ListView(
-                          children: [
-                            for (final list in groups)
-                              ExpansionTile(
-                                initiallyExpanded: groups.length <= 3,
-                                title: Text(list.first.supplierName,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.w600)),
-                                subtitle: Text([
+                ? const Center(child: Text('Nothing owed to suppliers 🎉'))
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView(
+                      children: [
+                        for (final list in groups)
+                          TileCard(
+                            child: ExpansionTile(
+                              shape: const Border(),
+                              collapsedShape: const Border(),
+                              leading: const Icon(
+                                Icons.local_shipping_outlined,
+                              ),
+                              initiallyExpanded: groups.length <= 3,
+                              title: Text(
+                                list.first.supplierName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              subtitle: Text(
+                                [
                                   if (list.first.supplierPhone != null)
                                     list.first.supplierPhone!,
                                   '${list.length} invoice${list.length == 1 ? '' : 's'}',
-                                ].join(' • ')),
-                                trailing: Text(formatMoney(owedTo(list)),
-                                    style: TextStyle(
-                                        color: theme.colorScheme.error,
-                                        fontWeight: FontWeight.bold)),
-                                children: [
-                                  for (final p in list)
-                                    ListTile(
-                                      contentPadding: const EdgeInsets.only(
-                                          left: 32, right: 16),
-                                      title: Text(
-                                          'Inv ${p.invoiceNo ?? '-'} • ${p.purchaseNo}'),
-                                      subtitle: Text([
+                                ].join(' • '),
+                              ),
+                              trailing: Text(
+                                formatMoney(owedTo(list)),
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              children: [
+                                for (final p in list)
+                                  ListTile(
+                                    contentPadding: const EdgeInsets.only(
+                                      left: 32,
+                                      right: 16,
+                                    ),
+                                    title: Text(
+                                      'Inv ${p.invoiceNo ?? '-'} • ${p.purchaseNo}',
+                                    ),
+                                    subtitle: Text(
+                                      [
                                         p.branchName,
                                         p.daysOld == 0
                                             ? 'today'
                                             : '${p.daysOld} days ago',
                                         if (p.amountPaid > 0)
                                           'paid ${formatMoney(p.amountPaid)} of ${formatMoney(p.total)}',
-                                      ].join(' • ')),
-                                      trailing: Text(formatMoney(p.balance)),
-                                      onTap: () => _open(p),
+                                      ].join(' • '),
                                     ),
-                                ],
-                              ),
-                          ],
-                        ),
-                      ),
+                                    trailing: Text(formatMoney(p.balance)),
+                                    onTap: () => _open(p),
+                                  ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),

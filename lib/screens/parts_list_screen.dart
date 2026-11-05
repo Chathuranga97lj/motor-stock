@@ -10,6 +10,7 @@ import '../models/profile.dart';
 import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
+import '../theme.dart';
 import '../utils/money.dart';
 import '../widgets/transfer_sheet.dart';
 import 'manage_lookups_screen.dart';
@@ -92,7 +93,9 @@ class _PartsListScreenState extends State<PartsListScreen> {
             const ListTile(title: Text('Working in branch')),
             for (final b in _branches)
               ListTile(
-                leading: Icon(b.isMain ? Icons.store : Icons.storefront_outlined),
+                leading: Icon(
+                  b.isMain ? Icons.store : Icons.storefront_outlined,
+                ),
                 title: Text(b.name),
                 subtitle: b.isMain ? const Text('Main branch') : null,
                 selected: b.id == _branchId,
@@ -109,68 +112,79 @@ class _PartsListScreenState extends State<PartsListScreen> {
 
   Future<void> _transfer(Part part) async {
     if (!_isSuperAdmin || _branches.length < 2) return;
-    final done = await showTransferSheet(context,
-        part: part, branches: _branches, fromBranchId: _branchId);
+    final done = await showTransferSheet(
+      context,
+      part: part,
+      branches: _branches,
+      fromBranchId: _branchId,
+    );
     if (done != null) _load();
   }
 
   Future<void> _openTransfers() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const TransfersScreen()),
-    );
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const TransfersScreen()));
   }
 
   Future<void> _openUsers() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const UsersScreen()),
-    );
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const UsersScreen()));
   }
 
   // Bills change stock, so the list reloads after both of these.
   Future<void> _openBills() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          BillsScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            BillsScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+      ),
+    );
     _load();
   }
 
   Future<void> _openToCollect() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          ToCollectScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            ToCollectScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+      ),
+    );
   }
 
   // Stock-ins change stock, so the list reloads afterwards.
   Future<void> _stockIn() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          StockInScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            StockInScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+      ),
+    );
     _load();
   }
 
   Future<void> _openPurchases() async {
     if (_branch == null) return;
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          PurchasesScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            PurchasesScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+      ),
+    );
     _load();
   }
 
   Future<void> _openToPay() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ToPayScreen()),
-    );
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ToPayScreen()));
   }
 
   Future<void> _newBill() async {
-    await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          NewBillScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
-    ));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            NewBillScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+      ),
+    );
     _load();
   }
 
@@ -182,7 +196,8 @@ class _PartsListScreenState extends State<PartsListScreen> {
         _lookups = lookups;
         // Drop filters whose entry was deleted.
         _filters.removeWhere(
-            (kind, id) => !lookups.of(kind).any((i) => i.id == id));
+          (kind, id) => !lookups.of(kind).any((i) => i.id == id),
+        );
       });
     } catch (_) {
       // Filters just stay empty; the stock list shows its own error.
@@ -201,7 +216,8 @@ class _PartsListScreenState extends State<PartsListScreen> {
       builder: (context) => SafeArea(
         child: ConstrainedBox(
           constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.6),
+            maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+          ),
           child: ListView(
             shrinkWrap: true,
             children: [
@@ -233,9 +249,8 @@ class _PartsListScreenState extends State<PartsListScreen> {
   }
 
   Future<void> _openManageLists() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ManageLookupsScreen()),
-    );
+    await Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => const ManageLookupsScreen()));
     await _loadLookups();
     await _loadBranches();
     _load();
@@ -305,30 +320,21 @@ class _PartsListScreenState extends State<PartsListScreen> {
   Widget build(BuildContext context) {
     final low = _parts.where((p) => p.isLowStockAt(_branchId)).toList();
     final visible = _lowStockOnly ? low : _parts;
-    final lowCount = low.length;
+    final outCount = _parts.where((p) => p.quantityAt(_branchId) == 0).length;
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('assets/branding/logo_mark.png', width: 32, height: 32),
+            Image.asset('assets/branding/logo_mark.png', width: 34, height: 34),
             const SizedBox(width: 10),
             const Text('OSHU Stock'),
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Bills',
-            icon: const Icon(Icons.receipt_long_outlined),
-            onPressed: _branch == null ? null : _openBills,
-          ),
-          IconButton(
-            tooltip: 'To collect',
-            icon: const Icon(Icons.account_balance_wallet_outlined),
-            onPressed: _branch == null ? null : _openToCollect,
-          ),
           PopupMenuButton<VoidCallback>(
             tooltip: 'More',
+            icon: const Icon(Icons.menu_rounded),
             onSelected: (action) => action(),
             itemBuilder: (context) => [
               PopupMenuItem(
@@ -337,7 +343,8 @@ class _PartsListScreenState extends State<PartsListScreen> {
                   leading: const Icon(Icons.badge_outlined),
                   title: Text(widget.profile.role.label),
                   subtitle: Text(
-                      Supabase.instance.client.auth.currentUser?.email ?? ''),
+                    Supabase.instance.client.auth.currentUser?.email ?? '',
+                  ),
                 ),
               ),
               const PopupMenuDivider(),
@@ -396,77 +403,239 @@ class _PartsListScreenState extends State<PartsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'new-bill',
+        onPressed: _branch == null ? null : _newBill,
+        icon: const Icon(Icons.receipt_long),
+        label: const Text('New bill'),
+      ),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: _header(low.length, outCount),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: _searchAndFilters(low.length, visible.length),
+            ),
+            ..._listSlivers(visible),
+            const SliverToBoxAdapter(child: SizedBox(height: 96)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Branch, stock summary and quick actions on the brand gradient.
+  Widget _header(int lowCount, int outCount) {
+    final canChange = _branches.length > 1;
+    return BrandHeader(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          FloatingActionButton.extended(
-            heroTag: 'stock-in',
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-            onPressed: _branch == null ? null : _stockIn,
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: const Text('Stock in'),
+          InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: canChange ? _pickBranch : null,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.storefront, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _branch?.isMain == true ? 'Main branch' : 'Branch',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      Text(
+                        _branch?.name ?? '…',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (canChange)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.16),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Change',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: Colors.white),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          FloatingActionButton.extended(
-            heroTag: 'new-bill',
-            onPressed: _branch == null ? null : _newBill,
-            icon: const Icon(Icons.receipt_long),
-            label: const Text('New bill'),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _headerStat(
+                'Parts',
+                '${_parts.length}',
+                Icons.inventory_2_outlined,
+                Colors.white,
+              ),
+              const SizedBox(width: 8),
+              _headerStat(
+                'Low stock',
+                '$lowCount',
+                Icons.warning_amber_rounded,
+                Brand.yellow,
+                onTap: () => setState(() => _lowStockOnly = !_lowStockOnly),
+              ),
+              const SizedBox(width: 8),
+              _headerStat(
+                'Out of stock',
+                '$outCount',
+                Icons.remove_shopping_cart_outlined,
+                const Color(0xFFFF9C94),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _QuickAction(
+                icon: Icons.receipt_long,
+                label: 'New bill',
+                color: Brand.red,
+                onTap: _branch == null ? null : _newBill,
+              ),
+              _QuickAction(
+                icon: Icons.inventory_2_outlined,
+                label: 'Stock in',
+                color: Brand.blue,
+                onTap: _branch == null ? null : _stockIn,
+              ),
+              _QuickAction(
+                icon: Icons.history,
+                label: 'Bills',
+                color: Brand.navy,
+                onTap: _branch == null ? null : _openBills,
+              ),
+              _QuickAction(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'To collect',
+                color: Brand.green,
+                onTap: _branch == null ? null : _openToCollect,
+              ),
+            ],
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Material(
-            color: Theme.of(context).colorScheme.primaryContainer,
-            child: InkWell(
-              onTap: _branches.length > 1 ? _pickBranch : null,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
-                  children: [
-                    const Icon(Icons.place_outlined, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text.rich(TextSpan(children: [
-                        const TextSpan(text: 'Branch: '),
-                        TextSpan(
-                          text: _branch?.name ?? '…',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ])),
-                    ),
-                    if (_branches.length > 1) ...[
-                      const Text('Change'),
-                      const Icon(Icons.arrow_drop_down),
-                    ],
-                  ],
+    );
+  }
+
+  Widget _headerStat(
+    String label,
+    String value,
+    IconData icon,
+    Color color, {
+    VoidCallback? onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
-              ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: TextField(
-              controller: _searchController,
-              onChanged: _onSearchChanged,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Search name or part no',
-                isDense: true,
-              ),
+        ),
+      ),
+    );
+  }
+
+  Widget _searchAndFilters(int lowCount, int visibleCount) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: _onSearchChanged,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search, color: Brand.blue),
+              hintText: 'Search name or part no',
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear',
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        _searchController.clear();
+                        _load();
+                        setState(() {});
+                      },
+                    ),
             ),
           ),
+          const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
                 FilterChip(
+                  avatar: const Icon(Icons.warning_amber_rounded, size: 18),
                   label: Text('Low stock ($lowCount)'),
                   selected: _lowStockOnly,
+                  showCheckmark: false,
                   onSelected: (v) => setState(() => _lowStockOnly = v),
                 ),
                 for (final kind in LookupKind.values)
@@ -479,15 +648,24 @@ class _PartsListScreenState extends State<PartsListScreen> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Text('${visible.length} items',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Text(
+                _lowStockOnly ? 'Low stock parts' : 'Parts',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Brand.ink,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$visibleCount items',
+                style: const TextStyle(color: Brand.muted),
+              ),
+            ],
           ),
-          Expanded(child: _buildBody(visible)),
         ],
       ),
     );
@@ -495,8 +673,11 @@ class _PartsListScreenState extends State<PartsListScreen> {
 
   Widget _filterChip(LookupKind kind) {
     final id = _filters[kind];
-    final name =
-        _lookups.of(kind).where((i) => i.id == id).map((i) => i.name).firstOrNull;
+    final name = _lookups
+        .of(kind)
+        .where((i) => i.id == id)
+        .map((i) => i.name)
+        .firstOrNull;
     return InputChip(
       label: Text(name ?? kind.label),
       avatar: name == null ? const Icon(Icons.arrow_drop_down) : null,
@@ -507,37 +688,54 @@ class _PartsListScreenState extends State<PartsListScreen> {
     );
   }
 
-  Widget _buildBody(List<Part> parts) {
+  List<Widget> _listSlivers(List<Part> parts) {
+    Widget fill(Widget child) => SliverFillRemaining(
+      hasScrollBody: false,
+      child: Center(
+        child: Padding(padding: const EdgeInsets.all(24), child: child),
+      ),
+    );
     if (_loading && _parts.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return [fill(const CircularProgressIndicator())];
     }
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(_error!, textAlign: TextAlign.center),
-            ),
-            OutlinedButton(onPressed: _load, child: const Text('Retry')),
-          ],
+      return [
+        fill(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off, size: 48, color: Brand.muted),
+              const SizedBox(height: 12),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              OutlinedButton(onPressed: _load, child: const Text('Retry')),
+            ],
+          ),
         ),
-      );
+      ];
     }
     if (parts.isEmpty) {
-      return const Center(child: Text('No parts found'));
+      return [
+        fill(
+          const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.search_off, size: 48, color: Brand.muted),
+              SizedBox(height: 8),
+              Text('No parts found', style: TextStyle(color: Brand.muted)),
+            ],
+          ),
+        ),
+      ];
     }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.only(bottom: 88),
+    final others = _branches.where((b) => b.id != _branchId).toList();
+    return [
+      SliverList.builder(
         itemCount: parts.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
-        itemBuilder: (context, i) => _PartTile(
+        itemBuilder: (context, i) => _PartCard(
           part: parts[i],
           branchId: _branchId,
-          otherBranches: _branches.where((b) => b.id != _branchId).toList(),
+          otherBranches: others,
           imageUrl: parts[i].images.isEmpty
               ? null
               : _service.imageUrl(parts[i].images.first),
@@ -546,12 +744,69 @@ class _PartsListScreenState extends State<PartsListScreen> {
           onAdjust: (delta) => _adjust(parts[i], delta),
         ),
       ),
+    ];
+  }
+}
+
+/// A round shortcut button on the home header.
+class _QuickAction extends StatelessWidget {
+  const _QuickAction({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, color: color, size: 27),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-class _PartTile extends StatelessWidget {
-  const _PartTile({
+class _PartCard extends StatelessWidget {
+  const _PartCard({
     required this.part,
     required this.branchId,
     required this.otherBranches,
@@ -571,77 +826,159 @@ class _PartTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final quantity = part.quantityAt(branchId);
     final isLow = part.isLowStockAt(branchId);
-    final subtitle = [
+    final stockColor = quantity == 0
+        ? Brand.red
+        : isLow
+        ? const Color(0xFFE08A00)
+        : Brand.green;
+    final details = [
       part.partNo,
       [part.brandName, part.bikeModelName].whereType<String>().join(' '),
       part.categoryName,
-    ]
-        .whereType<String>()
-        .where((s) => s.isNotEmpty)
-        .join(' • ');
+    ].whereType<String>().where((s) => s.isNotEmpty).join(' • ');
     final elsewhere = [
       for (final b in otherBranches) '${b.name} ${part.quantityAt(b.id)}',
     ].join(' • ');
 
-    return ListTile(
+    return TileCard(
       onTap: onTap,
       onLongPress: onLongPress,
-      leading: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 56,
-          height: 56,
-          child: imageUrl == null
-              ? ColoredBox(
-                  color: scheme.surfaceContainerHighest,
-                  child: const Icon(Icons.image_not_supported_outlined),
-                )
-              : Image.network(imageUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(Icons.broken_image)),
-        ),
-      ),
-      title: Text(part.name),
-      subtitle: Text(
-        '${subtitle.isEmpty ? '' : '$subtitle\n'}'
-        '${formatMoney(part.sellPrice)}'
-        '${elsewhere.isEmpty ? '' : '\nOther: $elsewhere'}',
-      ),
-      isThreeLine: subtitle.isNotEmpty || elsewhere.isNotEmpty,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            tooltip: 'Remove one',
-            icon: const Icon(Icons.remove_circle_outline),
-            onPressed: quantity > 0 ? () => onAdjust(-1) : null,
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isLow ? scheme.errorContainer : scheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '$quantity',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isLow
-                    ? scheme.onErrorContainer
-                    : scheme.onSecondaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: SizedBox(
+                width: 70,
+                height: 70,
+                child: imageUrl == null
+                    ? ColoredBox(
+                        color: Brand.blue.withValues(alpha: 0.08),
+                        child: const Icon(
+                          Icons.two_wheeler,
+                          color: Brand.blue,
+                          size: 32,
+                        ),
+                      )
+                    : Image.network(
+                        imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.broken_image),
+                      ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Add one',
-            icon: const Icon(Icons.add_circle_outline),
-            onPressed: () => onAdjust(1),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    part.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Brand.ink,
+                    ),
+                  ),
+                  if (details.isNotEmpty)
+                    Text(
+                      details,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Brand.muted,
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Brand.blue.withValues(alpha: 0.09),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      formatMoney(part.sellPrice),
+                      style: const TextStyle(
+                        color: Brand.blue,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  if (elsewhere.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Other: $elsewhere',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12, color: Brand.muted),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            Column(
+              children: [
+                Container(
+                  width: 64,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: stockColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        '$quantity',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: stockColor,
+                        ),
+                      ),
+                      Text(
+                        quantity == 0 ? 'out' : 'in stock',
+                        style: TextStyle(fontSize: 10.5, color: stockColor),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _stepButton(
+                      Icons.remove,
+                      'Remove one',
+                      quantity > 0 ? () => onAdjust(-1) : null,
+                    ),
+                    _stepButton(Icons.add, 'Add one', () => onAdjust(1)),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _stepButton(IconData icon, String tooltip, VoidCallback? onPressed) =>
+      IconButton(
+        tooltip: tooltip,
+        visualDensity: VisualDensity.compact,
+        iconSize: 20,
+        color: Brand.blue,
+        icon: Icon(icon),
+        onPressed: onPressed,
+      );
 }

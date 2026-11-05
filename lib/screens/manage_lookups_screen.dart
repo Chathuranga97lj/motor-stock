@@ -70,8 +70,9 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
       await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$e'.replaceFirst('Exception: ', ''))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+      );
     }
   }
 
@@ -86,8 +87,11 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   }
 
   Future<void> _rename(LookupKind kind, LookupItem item) async {
-    final name = await showNameDialog(context,
-        title: 'Rename ${kind.label.toLowerCase()}', initial: item.name);
+    final name = await showNameDialog(
+      context,
+      title: 'Rename ${kind.label.toLowerCase()}',
+      initial: item.name,
+    );
     if (name == null || LookupService.normalize(name) == item.name) return;
     await _run(() => _service.rename(kind, item, name));
   }
@@ -116,14 +120,18 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete "${item.name}"?'),
-        content: Text(warnings.isEmpty ? 'Not used by any part.' : warnings.join('\n\n')),
+        content: Text(
+          warnings.isEmpty ? 'Not used by any part.' : warnings.join('\n\n'),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -154,48 +162,60 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-                ? Center(child: Text(_error!))
-                : TabBarView(children: [
-                    _simpleList(LookupKind.category),
-                    _simpleList(LookupKind.brand),
-                    _modelsList(),
-                    _branchesList(),
-                    _suppliersList(),
-                    _servicesList(),
-                  ]),
+            ? Center(child: Text(_error!))
+            : TabBarView(
+                children: [
+                  _simpleList(LookupKind.category),
+                  _simpleList(LookupKind.brand),
+                  _modelsList(),
+                  _branchesList(),
+                  _suppliersList(),
+                  _servicesList(),
+                ],
+              ),
       ),
     );
   }
 
   Widget _servicesList() {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       children: [
-        _addTile('Add service', () => _editService(null)),
-        const Divider(height: 1),
-        for (final s in _serviceItems)
-          ListTile(
-            leading: Icon(Icons.build_outlined,
-                color: s.active ? null : Theme.of(context).disabledColor),
-            title: Text(s.name),
-            subtitle: Text(
-                '${formatMoney(s.defaultPrice)}${s.active ? '' : ' • hidden from bills'}'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Edit',
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _editService(s),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _addTile('Add service', () => _editService(null)),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              for (final s in _serviceItems)
+                ListTile(
+                  leading: Icon(
+                    Icons.build_outlined,
+                    color: s.active ? null : Theme.of(context).disabledColor,
+                  ),
+                  title: Text(s.name),
+                  subtitle: Text(
+                    '${formatMoney(s.defaultPrice)}${s.active ? '' : ' • hidden from bills'}',
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _editService(s),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _deleteService(s),
+                      ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  tooltip: 'Delete',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _deleteService(s),
-                ),
-              ],
-            ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -204,7 +224,8 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   Future<void> _editService(ServiceItem? s) async {
     final name = TextEditingController(text: s?.name);
     final price = TextEditingController(
-        text: s == null ? '' : s.defaultPrice.toStringAsFixed(2));
+      text: s == null ? '' : s.defaultPrice.toStringAsFixed(2),
+    );
     var active = s?.active ?? true;
     final save = await showDialog<bool>(
       context: context,
@@ -223,8 +244,9 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
               const SizedBox(height: 12),
               TextField(
                 controller: price,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
                 ],
@@ -243,11 +265,13 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel')),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
             FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Save')),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save'),
+            ),
           ],
         ),
       ),
@@ -256,8 +280,10 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
     name.dispose();
     price.dispose();
     if (save != true || v.$1.trim().isEmpty) return;
-    await _run(() =>
-        _billService.saveService(s, name: v.$1, price: v.$2, active: active));
+    await _run(
+      () =>
+          _billService.saveService(s, name: v.$1, price: v.$2, active: active),
+    );
   }
 
   Future<void> _deleteService(ServiceItem s) async {
@@ -265,16 +291,20 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete "${s.name}"?'),
-        content: const Text('Old bills keep the service name and charge. '
-            'To keep it but stop offering it, edit it and turn off '
-            '"Show on bills" instead.'),
+        content: const Text(
+          'Old bills keep the service name and charge. '
+          'To keep it but stop offering it, edit it and turn off '
+          '"Show on bills" instead.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -283,35 +313,44 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
 
   Widget _suppliersList() {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       children: [
-        _addTile('Add supplier', () => _editSupplier(null)),
-        const Divider(height: 1),
-        for (final s in _suppliers)
-          ListTile(
-            leading: const Icon(Icons.local_shipping_outlined),
-            title: Text(s.name),
-            subtitle: Text([
-              if (s.phone != null) s.phone!,
-              if (s.address != null) s.address!,
-              if (s.note != null) s.note!,
-            ].join(' • ')),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Edit',
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => _editSupplier(s),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _addTile('Add supplier', () => _editSupplier(null)),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              for (final s in _suppliers)
+                ListTile(
+                  leading: const Icon(Icons.local_shipping_outlined),
+                  title: Text(s.name),
+                  subtitle: Text(
+                    [
+                      if (s.phone != null) s.phone!,
+                      if (s.address != null) s.address!,
+                      if (s.note != null) s.note!,
+                    ].join(' • '),
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Edit',
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () => _editSupplier(s),
+                      ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _deleteSupplier(s),
+                      ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  tooltip: 'Delete',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _deleteSupplier(s),
-                ),
-              ],
-            ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -352,18 +391,22 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
               TextField(
                 controller: note,
                 decoration: const InputDecoration(
-                    labelText: 'Note', helperText: 'e.g. bank account, contact person'),
+                  labelText: 'Note',
+                  helperText: 'e.g. bank account, contact person',
+                ),
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -375,10 +418,19 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
     await _run(() async {
       if (s == null) {
         await _purchaseService.addSupplier(
-            name: v.$1, phone: v.$2, address: v.$3, note: v.$4);
+          name: v.$1,
+          phone: v.$2,
+          address: v.$3,
+          note: v.$4,
+        );
       } else {
-        await _purchaseService.updateSupplier(s,
-            name: v.$1, phone: v.$2, address: v.$3, note: v.$4);
+        await _purchaseService.updateSupplier(
+          s,
+          name: v.$1,
+          phone: v.$2,
+          address: v.$3,
+          note: v.$4,
+        );
       }
     });
   }
@@ -389,14 +441,17 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
       builder: (context) => AlertDialog(
         title: Text('Delete "${s.name}"?'),
         content: const Text(
-            'Suppliers with stock-ins cannot be deleted, to keep the history.'),
+          'Suppliers with stock-ins cannot be deleted, to keep the history.',
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Delete')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -407,30 +462,43 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   // stock and transfer history must stay intact.
   Widget _branchesList() {
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       children: [
-        _addTile('Add branch', () async {
-          final name = await showNameDialog(context, title: 'New branch');
-          if (name != null) await _run(() => _branchService.addBranch(name));
-        }),
-        const Divider(height: 1),
-        for (final b in _branches)
-          ListTile(
-            leading: Icon(b.isMain ? Icons.store : Icons.storefront_outlined),
-            title: Text(b.name),
-            subtitle: Text([
-              if (b.isMain) 'Main branch',
-              if (b.address != null) b.address!,
-              if (b.phone != null) b.phone!,
-              if (b.address == null && b.phone == null)
-                'Add address and phone for bills',
-            ].join(' • ')),
-            trailing: IconButton(
-              tooltip: 'Edit',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _editBranch(b),
-            ),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _addTile('Add branch', () async {
+                final name = await showNameDialog(context, title: 'New branch');
+                if (name != null) {
+                  await _run(() => _branchService.addBranch(name));
+                }
+              }),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              for (final b in _branches)
+                ListTile(
+                  leading: Icon(
+                    b.isMain ? Icons.store : Icons.storefront_outlined,
+                  ),
+                  title: Text(b.name),
+                  subtitle: Text(
+                    [
+                      if (b.isMain) 'Main branch',
+                      if (b.address != null) b.address!,
+                      if (b.phone != null) b.phone!,
+                      if (b.address == null && b.phone == null)
+                        'Add address and phone for bills',
+                    ].join(' • '),
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Edit',
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _editBranch(b),
+                  ),
+                ),
+            ],
           ),
+        ),
       ],
     );
   }
@@ -457,25 +525,31 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
                 controller: address,
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
-                    labelText: 'Address', helperText: 'Printed on bills'),
+                  labelText: 'Address',
+                  helperText: 'Printed on bills',
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: phone,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
-                    labelText: 'Phone', helperText: 'Printed on bills'),
+                  labelText: 'Phone',
+                  helperText: 'Printed on bills',
+                ),
               ),
             ],
           ),
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save')),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -484,18 +558,31 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
       c.dispose();
     }
     if (save != true || values.$1.trim().isEmpty) return;
-    await _run(() => _branchService.updateBranch(b,
-        name: values.$1, address: values.$2, phone: values.$3));
+    await _run(
+      () => _branchService.updateBranch(
+        b,
+        name: values.$1,
+        address: values.$2,
+        phone: values.$3,
+      ),
+    );
   }
 
   Widget _simpleList(LookupKind kind) {
     final items = _lookups.of(kind);
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       children: [
-        _addTile('Add ${kind.label.toLowerCase()}', () => _add(kind)),
-        const Divider(height: 1),
-        for (final item in items) _itemTile(kind, item),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              _addTile('Add ${kind.label.toLowerCase()}', () => _add(kind)),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              for (final item in items) _itemTile(kind, item),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -505,48 +592,59 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
       return const Center(child: Text('Add a brand first'));
     }
     return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       children: [
-        for (final brand in _lookups.brands) ...[
-          Container(
-            color: Theme.of(context).colorScheme.surfaceContainerHigh,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: Text(brand.name,
-                style: Theme.of(context).textTheme.titleSmall),
+        Card(
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (final brand in _lookups.brands) ...[
+                Container(
+                  color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Text(
+                    brand.name,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                for (final model in _lookups.modelsOf(brand.id))
+                  _itemTile(LookupKind.model, model),
+                _addTile(
+                  'Add ${brand.name} model',
+                  () => _add(LookupKind.model, brand: brand),
+                ),
+              ],
+            ],
           ),
-          for (final model in _lookups.modelsOf(brand.id))
-            _itemTile(LookupKind.model, model),
-          _addTile('Add ${brand.name} model',
-              () => _add(LookupKind.model, brand: brand)),
-        ],
+        ),
       ],
     );
   }
 
   Widget _addTile(String label, VoidCallback onTap) => ListTile(
-        leading: const Icon(Icons.add_circle_outline),
-        title: Text(label),
-        textColor: Theme.of(context).colorScheme.primary,
-        iconColor: Theme.of(context).colorScheme.primary,
-        onTap: onTap,
-      );
+    leading: const Icon(Icons.add_circle_outline),
+    title: Text(label),
+    textColor: Theme.of(context).colorScheme.primary,
+    iconColor: Theme.of(context).colorScheme.primary,
+    onTap: onTap,
+  );
 
   Widget _itemTile(LookupKind kind, LookupItem item) => ListTile(
-        title: Text(item.name),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: 'Rename',
-              icon: const Icon(Icons.edit_outlined),
-              onPressed: () => _rename(kind, item),
-            ),
-            IconButton(
-              tooltip: 'Delete',
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () => _delete(kind, item),
-            ),
-          ],
+    title: Text(item.name),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: 'Rename',
+          icon: const Icon(Icons.edit_outlined),
+          onPressed: () => _rename(kind, item),
         ),
-      );
+        IconButton(
+          tooltip: 'Delete',
+          icon: const Icon(Icons.delete_outline),
+          onPressed: () => _delete(kind, item),
+        ),
+      ],
+    ),
+  );
 }

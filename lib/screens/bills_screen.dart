@@ -4,6 +4,7 @@ import '../models/bill.dart';
 import '../models/branch.dart';
 import '../services/bill_service.dart';
 import '../utils/money.dart';
+import '../theme.dart';
 import 'bill_detail_screen.dart';
 import 'new_bill_screen.dart';
 
@@ -30,7 +31,11 @@ enum _Period {
 
 /// Bills issued at [branch], with the total for the chosen period.
 class BillsScreen extends StatefulWidget {
-  const BillsScreen({super.key, required this.branch, this.isSuperAdmin = false});
+  const BillsScreen({
+    super.key,
+    required this.branch,
+    this.isSuperAdmin = false,
+  });
 
   final Branch branch;
   final bool isSuperAdmin;
@@ -93,8 +98,12 @@ class _BillsScreenState extends State<BillsScreen> {
       appBar: AppBar(title: Text('Bills • ${widget.branch.name}')),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'new-bill',
-        onPressed: () => _open(NewBillScreen(
-            branch: widget.branch, isSuperAdmin: widget.isSuperAdmin)),
+        onPressed: () => _open(
+          NewBillScreen(
+            branch: widget.branch,
+            isSuperAdmin: widget.isSuperAdmin,
+          ),
+        ),
         icon: const Icon(Icons.add),
         label: const Text('New bill'),
       ),
@@ -124,7 +133,8 @@ class _BillsScreenState extends State<BillsScreen> {
                     theme,
                     label: 'Sales',
                     value: total,
-                    note: '${completed.length} bills'
+                    note:
+                        '${completed.length} bills'
                         '${_bills.length > completed.length ? ', ${_bills.length - completed.length} cancelled' : ''}',
                     color: theme.colorScheme.primaryContainer,
                   ),
@@ -163,11 +173,13 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
-  Widget _totalCard(ThemeData theme,
-      {required String label,
-      required double value,
-      required String note,
-      required Color color}) {
+  Widget _totalCard(
+    ThemeData theme, {
+    required String label,
+    required double value,
+    required String note,
+    required Color color,
+  }) {
     return Card(
       margin: EdgeInsets.zero,
       color: color,
@@ -180,9 +192,12 @@ class _BillsScreenState extends State<BillsScreen> {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(formatMoney(value),
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              child: Text(
+                formatMoney(value),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             Text(note, style: theme.textTheme.bodySmall),
           ],
@@ -206,41 +221,50 @@ class _BillsScreenState extends State<BillsScreen> {
     final scheme = Theme.of(context).colorScheme;
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
+      child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 88),
         itemCount: _bills.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) {
           final b = _bills[i];
-          return ListTile(
-            leading: Icon(
-              b.cancelled ? Icons.cancel_outlined : Icons.receipt_long,
-              color: b.cancelled ? scheme.error : scheme.primary,
-            ),
-            title: Text(b.billNo),
-            subtitle: Text([
-              formatDateTime(b.createdAt),
-              if (b.customerName != null) b.customerName!,
-              if (!b.cancelled) b.paymentStatus.label,
-            ].join(' • ')),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  b.cancelled ? 'Cancelled' : formatMoney(b.total),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: b.cancelled ? scheme.error : null,
+          return TileCard(
+            child: ListTile(
+              leading: Icon(
+                b.cancelled ? Icons.cancel_outlined : Icons.receipt_long,
+                color: b.cancelled ? scheme.error : scheme.primary,
+              ),
+              title: Text(b.billNo),
+              subtitle: Text(
+                [
+                  formatDateTime(b.createdAt),
+                  if (b.customerName != null) b.customerName!,
+                  if (!b.cancelled) b.paymentStatus.label,
+                ].join(' • '),
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    b.cancelled ? 'Cancelled' : formatMoney(b.total),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: b.cancelled ? scheme.error : null,
+                    ),
                   ),
+                  if (b.hasBalance)
+                    Text(
+                      'Due ${formatMoney(b.balance)}',
+                      style: TextStyle(fontSize: 12, color: scheme.error),
+                    ),
+                ],
+              ),
+              onTap: () => _open(
+                BillDetailScreen(
+                  billId: b.id,
+                  isSuperAdmin: widget.isSuperAdmin,
                 ),
-                if (b.hasBalance)
-                  Text('Due ${formatMoney(b.balance)}',
-                      style: TextStyle(fontSize: 12, color: scheme.error)),
-              ],
+              ),
             ),
-            onTap: () => _open(
-                BillDetailScreen(billId: b.id, isSuperAdmin: widget.isSuperAdmin)),
           );
         },
       ),
