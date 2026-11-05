@@ -28,22 +28,49 @@ class _NewBillScreenState extends State<NewBillScreen> {
   final _customerName = TextEditingController();
   final _customerPhone = TextEditingController();
   final _discount = TextEditingController();
+  // Empty means the full total is paid now.
+  final _amountPaid = TextEditingController();
   PaymentMethod _payment = PaymentMethod.cash;
   bool _saving = false;
+  bool _triedSave = false;
 
   @override
   void dispose() {
     _customerName.dispose();
     _customerPhone.dispose();
     _discount.dispose();
+    _amountPaid.dispose();
     super.dispose();
   }
 
   double get _subtotal => cartSubtotal(_lines);
   double get _discountValue => double.tryParse(_discount.text) ?? 0;
-  double get _total => roundMoney(_subtotal - _discountValue);
+  double get _total {
+    final t = roundMoney(_subtotal - _discountValue);
+    return t < 0 ? 0 : t;
+  }
+
   String? get _discountError =>
       _discountValue > _subtotal ? 'More than the subtotal' : null;
+
+  double get _paidNow {
+    if (_payment == PaymentMethod.credit) return 0;
+    final text = _amountPaid.text.trim();
+    return text.isEmpty ? _total : roundMoney(double.tryParse(text) ?? 0);
+  }
+
+  double get _balance => roundMoney(_total - _paidNow);
+  String? get _paidError => _paidNow > _total ? 'More than the total' : null;
+
+  // A bill that is not fully paid needs to say who owes the money.
+  bool get _needsCustomer => _balance > 0;
+  String? _requiredError(TextEditingController c) =>
+      _triedSave && _needsCustomer && c.text.trim().isEmpty
+          ? 'Required when there is a balance'
+          : null;
+
+  bool get _canSave =>
+      _lines.isNotEmpty && _discountError == null && _paidError == null;
 
   int _available(Part p) => p.quantityAt(widget.branch.id);
 
@@ -71,7 +98,12 @@ class _NewBillScreenState extends State<NewBillScreen> {
       });
 
   Future<void> _save() async {
-    if (_lines.isEmpty || _discountError != null) return;
+    setState(() => _triedSave = true);
+    if (!_canSave ||
+        _requiredError(_customerName) != null ||
+        _requiredError(_customerPhone) != null) {
+      return;
+    }
     setState(() => _saving = true);
     try {
       final id = await _billService.createBill(
@@ -79,6 +111,7 @@ class _NewBillScreenState extends State<NewBillScreen> {
         lines: _lines,
         paymentMethod: _payment,
         discount: _discountValue,
+        amountPaid: _paidNow,
         customerName: _customerName.text,
         customerPhone: _customerPhone.text,
       );
@@ -149,18 +182,27 @@ class _NewBillScreenState extends State<NewBillScreen> {
                 ),
               for (final line in _lines) _lineTile(line),
               const SizedBox(height: 16),
-              Text('Customer (optional)', style: theme.textTheme.titleMedium),
+              Text(_needsCustomer ? 'Customer' : 'Customer (optional)',
+                  style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               TextField(
                 controller: _customerName,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(
+                  labelText: _needsCustomer ? 'Name *' : 'Name',
+                  errorText: _requiredError(_customerName),
+                ),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _customerPhone,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(labelText: 'Phone'),
+                decoration: InputDecoration(
+                  labelText: _needsCustomer ? 'Phone *' : 'Phone',
+                  errorText: _requiredError(_customerPhone),
+                ),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 16),
               Text('Payment', style: theme.textTheme.titleMedium),
@@ -168,11 +210,33 @@ class _NewBillScreenState extends State<NewBillScreen> {
               SegmentedButton<PaymentMethod>(
                 segments: [
                   for (final m in PaymentMethod.values)
-                    ButtonSegment(value: m, label: Text(m.label)),
+                    ButtonSegment(value: m, label: Text(m.shortLabel)),
                 ],
                 selected: {_payment},
+                showSelectedIcon: false,
                 onSelectionChanged: (s) => setState(() => _payment = s.first),
               ),
+              const SizedBox(height: 12),
+              if (_payment == PaymentMethod.credit)
+                Text('Nothing is paid now. The full total is added to '
+                    'To collect.',
+                    style: theme.textTheme.bodySmall)
+              else
+                TextField(
+                  controller: _amountPaid,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  ],
+                  decoration: InputDecoration(
+                    labelText: 'Amount paid now ($currencySymbol)',
+                    hintText: 'Full amount',
+                    helperText: 'Leave empty if paying in full',
+                    errorText: _paidError,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
               const SizedBox(height: 16),
               TextField(
                 controller: _discount,
@@ -266,14 +330,26 @@ class _NewBillScreenState extends State<NewBillScreen> {
               row('Subtotal', formatMoney(_subtotal)),
               if (_discountValue > 0)
                 row('Discount', '- ${formatMoney(_discountValue)}'),
-              row('Total', formatMoney(_total < 0 ? 0 : _total), bold: true),
+              row('Total', formatMoney(_total), bold: true),
+              if (_balance > 0 && _lines.isNotEmpty) ...[
+                row('Paid now', formatMoney(_paidNow)),
+                Row(
+                  children: [
+                    Expanded(
+                        child: Text('Balance to collect',
+                            style: TextStyle(color: theme.colorScheme.error))),
+                    Text(formatMoney(_balance),
+                        style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ],
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: _lines.isEmpty || _discountError != null || _saving
-                      ? null
-                      : _save,
+                  onPressed: !_canSave || _saving ? null : _save,
                   icon: _saving
                       ? const SizedBox(
                           width: 18,

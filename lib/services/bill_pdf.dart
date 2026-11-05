@@ -57,6 +57,10 @@ Future<Uint8List> buildBillPdf(Bill bill) async {
         _itemsTable(bill),
         pw.SizedBox(height: 8),
         _totals(bill, bold),
+        if (bill.payments.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          _payments(bill, small),
+        ],
       ],
     ),
   );
@@ -145,7 +149,7 @@ pw.Widget _details(Bill bill, pw.TextStyle small, pw.TextStyle bold) {
       pw.Expanded(
         child: pw.Column(children: [
           pair('Date', formatDateTime(bill.createdAt)),
-          pair('Payment', bill.paymentMethod.label),
+          pair('Payment', bill.cancelled ? '-' : bill.paymentStatus.label),
         ]),
       ),
       pw.SizedBox(width: 12),
@@ -230,8 +234,48 @@ pw.Widget _totals(Bill bill, pw.TextStyle bold) {
         if (bill.discount > 0) row('Discount', '- ${formatMoney(bill.discount)}'),
         pw.Divider(color: _navy, thickness: 1),
         row('TOTAL', formatMoney(bill.total), strong: true),
+        if (!bill.cancelled) ...[
+          row('Paid', formatMoney(bill.amountPaid)),
+          if (bill.hasBalance)
+            pw.Container(
+              margin: const pw.EdgeInsets.only(top: 4),
+              padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              color: const PdfColor.fromInt(0xFFFDE2E1),
+              child: pw.Row(children: [
+                pw.Expanded(
+                    child: pw.Text('BALANCE DUE',
+                        style: pw.TextStyle(
+                            color: _red,
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold))),
+                pw.Text(formatMoney(bill.balance),
+                    style: pw.TextStyle(
+                        color: _red,
+                        fontSize: 12,
+                        fontWeight: pw.FontWeight.bold)),
+              ]),
+            ),
+        ],
       ]),
     ),
+  );
+}
+
+pw.Widget _payments(Bill bill, pw.TextStyle small) {
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Text('Payments received',
+          style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold)),
+      pw.SizedBox(height: 2),
+      for (final p in bill.payments)
+        pw.Row(children: [
+          pw.SizedBox(width: 90, child: pw.Text(formatDateTime(p.createdAt), style: small)),
+          pw.SizedBox(width: 70, child: pw.Text(p.method.label, style: small)),
+          pw.Expanded(child: pw.Text(p.note ?? '', style: small)),
+          pw.Text(formatMoney(p.amount), style: const pw.TextStyle(fontSize: 8)),
+        ]),
+    ],
   );
 }
 

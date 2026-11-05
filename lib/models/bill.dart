@@ -1,18 +1,64 @@
 import 'part.dart';
 
 enum PaymentMethod {
-  cash('cash', 'Cash'),
-  card('card', 'Card'),
-  bankTransfer('bank_transfer', 'Bank transfer');
+  cash('cash', 'Cash', 'Cash'),
+  card('card', 'Card', 'Card'),
+  bankTransfer('bank_transfer', 'Bank transfer', 'Bank'),
+  // Nothing paid when the bill was issued.
+  credit('credit', 'Credit (pay later)', 'Credit');
 
-  const PaymentMethod(this.value, this.label);
+  const PaymentMethod(this.value, this.label, this.shortLabel);
 
   final String value;
   final String label;
+  final String shortLabel;
+
+  /// Methods money can actually be received by.
+  static const receiving = [cash, card, bankTransfer];
 
   static PaymentMethod parse(String? value) =>
       PaymentMethod.values.where((m) => m.value == value).firstOrNull ??
       PaymentMethod.cash;
+}
+
+enum PaymentStatus {
+  paid('paid', 'Paid'),
+  partial('partial', 'Part paid'),
+  unpaid('unpaid', 'Unpaid');
+
+  const PaymentStatus(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  static PaymentStatus parse(String? value) =>
+      PaymentStatus.values.where((s) => s.value == value).firstOrNull ??
+      PaymentStatus.paid;
+}
+
+/// One amount received against a bill.
+class BillPayment {
+  final double amount;
+  final PaymentMethod method;
+  final String? note;
+  final String? takenBy;
+  final DateTime createdAt;
+
+  const BillPayment({
+    required this.amount,
+    required this.method,
+    this.note,
+    this.takenBy,
+    required this.createdAt,
+  });
+
+  factory BillPayment.fromJson(Map<String, dynamic> json) => BillPayment(
+        amount: (json['amount'] as num).toDouble(),
+        method: PaymentMethod.parse(json['method'] as String?),
+        note: json['note'] as String?,
+        takenBy: json['created_by_email'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+      );
 }
 
 /// A part on a bill that has not been saved yet.
@@ -67,11 +113,14 @@ class Bill {
   final double discount;
   final double total;
   final PaymentMethod paymentMethod;
+  final double amountPaid;
+  final PaymentStatus paymentStatus;
   final bool cancelled;
   final String? cancelReason;
   final String? issuedBy;
   final DateTime createdAt;
   final List<BillItem> items;
+  final List<BillPayment> payments;
 
   const Bill({
     required this.id,
@@ -86,22 +135,34 @@ class Bill {
     required this.discount,
     required this.total,
     required this.paymentMethod,
+    this.amountPaid = 0,
+    this.paymentStatus = PaymentStatus.paid,
     this.cancelled = false,
     this.cancelReason,
     this.issuedBy,
     required this.createdAt,
     this.items = const [],
+    this.payments = const [],
   });
 
   static const listColumns = 'id, bill_no, branch_id, customer_name, '
       'customer_phone, subtotal, discount, total, payment_method, status, '
+      'amount_paid, payment_status, '
       'cancel_reason, created_by_email, created_at, '
       'branch:branch_id(name, address, phone)';
 
   static const detailColumns = '$listColumns, '
-      'bill_items(part_name, part_no, quantity, unit_price, line_total, sort_order)';
+      'bill_items(part_name, part_no, quantity, unit_price, line_total, sort_order), '
+      'bill_payments(amount, method, note, created_by_email, created_at)';
 
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
+
+  double get balance => roundMoney(total - amountPaid);
+
+  /// Money still to be collected (0 for cancelled bills).
+  bool get hasBalance => !cancelled && balance > 0;
+
+  int get daysOld => DateTime.now().difference(createdAt).inDays;
 
   factory Bill.fromJson(Map<String, dynamic> json) {
     final branch = json['branch'] as Map<String, dynamic>?;
@@ -123,11 +184,20 @@ class Bill {
       discount: (json['discount'] as num?)?.toDouble() ?? 0,
       total: (json['total'] as num).toDouble(),
       paymentMethod: PaymentMethod.parse(json['payment_method'] as String?),
+      // Bills from before payments were tracked count as paid in full.
+      amountPaid: (json['amount_paid'] as num?)?.toDouble() ??
+          (json['total'] as num).toDouble(),
+      paymentStatus: PaymentStatus.parse(json['payment_status'] as String?),
       cancelled: json['status'] == 'cancelled',
       cancelReason: json['cancel_reason'] as String?,
       issuedBy: json['created_by_email'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
       items: rawItems.map(BillItem.fromJson).toList(),
+      payments: (json['bill_payments'] as List<dynamic>? ?? [])
+          .cast<Map<String, dynamic>>()
+          .map(BillPayment.fromJson)
+          .toList()
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
     );
   }
 }

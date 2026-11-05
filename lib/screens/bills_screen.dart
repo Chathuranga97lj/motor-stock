@@ -43,6 +43,8 @@ class _BillsScreenState extends State<BillsScreen> {
   final _service = BillService();
   _Period _period = _Period.today;
   List<Bill> _bills = [];
+  // Money received in the period, including payments on older credit bills.
+  double _collected = 0;
   bool _loading = true;
   String? _error;
 
@@ -55,11 +57,14 @@ class _BillsScreenState extends State<BillsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final bills = await _service.fetchBills(
-          branchId: widget.branch.id, from: _period.from);
+      final (bills, collected) = await (
+        _service.fetchBills(branchId: widget.branch.id, from: _period.from),
+        _service.fetchCollected(branchId: widget.branch.id, from: _period.from),
+      ).wait;
       if (mounted) {
         setState(() {
           _bills = bills;
+          _collected = collected;
           _error = null;
         });
       }
@@ -107,21 +112,64 @@ class _BillsScreenState extends State<BillsScreen> {
               },
             ),
           ),
-          Card(
-            margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            color: theme.colorScheme.primaryContainer,
-            child: ListTile(
-              title: Text(formatMoney(total),
-                  style: theme.textTheme.titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold)),
-              subtitle: Text('${completed.length} bills'
-                  '${_bills.length > completed.length ? ' (${_bills.length - completed.length} cancelled not counted)' : ''}'),
-              trailing: const Icon(Icons.payments_outlined),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _totalCard(
+                    theme,
+                    label: 'Sales',
+                    value: total,
+                    note: '${completed.length} bills'
+                        '${_bills.length > completed.length ? ', ${_bills.length - completed.length} cancelled' : ''}',
+                    color: theme.colorScheme.primaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _totalCard(
+                    theme,
+                    label: 'Collected',
+                    value: _collected,
+                    note: 'money received',
+                    color: theme.colorScheme.secondaryContainer,
+                  ),
+                ),
+              ],
             ),
           ),
           if (_loading) const LinearProgressIndicator(),
           Expanded(child: _list()),
         ],
+      ),
+    );
+  }
+
+  Widget _totalCard(ThemeData theme,
+      {required String label,
+      required double value,
+      required String note,
+      required Color color}) {
+    return Card(
+      margin: EdgeInsets.zero,
+      color: color,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: theme.textTheme.labelLarge),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(formatMoney(value),
+                  style: theme.textTheme.titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+            ),
+            Text(note, style: theme.textTheme.bodySmall),
+          ],
+        ),
       ),
     );
   }
@@ -156,14 +204,23 @@ class _BillsScreenState extends State<BillsScreen> {
             subtitle: Text([
               formatDateTime(b.createdAt),
               if (b.customerName != null) b.customerName!,
-              b.paymentMethod.label,
+              if (!b.cancelled) b.paymentStatus.label,
             ].join(' • ')),
-            trailing: Text(
-              b.cancelled ? 'Cancelled' : formatMoney(b.total),
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: b.cancelled ? scheme.error : null,
-              ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  b.cancelled ? 'Cancelled' : formatMoney(b.total),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: b.cancelled ? scheme.error : null,
+                  ),
+                ),
+                if (b.hasBalance)
+                  Text('Due ${formatMoney(b.balance)}',
+                      style: TextStyle(fontSize: 12, color: scheme.error)),
+              ],
             ),
             onTap: () => _open(
                 BillDetailScreen(billId: b.id, isSuperAdmin: widget.isSuperAdmin)),

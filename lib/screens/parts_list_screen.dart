@@ -18,6 +18,7 @@ import 'transfers_screen.dart';
 import 'users_screen.dart';
 import 'bills_screen.dart';
 import 'new_bill_screen.dart';
+import 'to_collect_screen.dart';
 
 class PartsListScreen extends StatefulWidget {
   const PartsListScreen({super.key, required this.profile});
@@ -129,6 +130,13 @@ class _PartsListScreenState extends State<PartsListScreen> {
           BillsScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
     ));
     _load();
+  }
+
+  Future<void> _openToCollect() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          ToCollectScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+    ));
   }
 
   Future<void> _newBill() async {
@@ -287,12 +295,11 @@ class _PartsListScreenState extends State<PartsListScreen> {
             icon: const Icon(Icons.receipt_long_outlined),
             onPressed: _branch == null ? null : _openBills,
           ),
-          if (_isSuperAdmin)
-            IconButton(
-              tooltip: 'Transfer history',
-              icon: const Icon(Icons.swap_horiz),
-              onPressed: _openTransfers,
-            ),
+          IconButton(
+            tooltip: 'To collect',
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: _branch == null ? null : _openToCollect,
+          ),
           PopupMenuButton<VoidCallback>(
             tooltip: 'More',
             onSelected: (action) => action(),
@@ -320,6 +327,13 @@ class _PartsListScreenState extends State<PartsListScreen> {
                   child: const ListTile(
                     leading: Icon(Icons.manage_accounts_outlined),
                     title: Text('Users'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _openTransfers,
+                  child: const ListTile(
+                    leading: Icon(Icons.swap_horiz),
+                    title: Text('Transfer history'),
                   ),
                 ),
               ],

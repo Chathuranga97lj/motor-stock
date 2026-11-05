@@ -58,6 +58,62 @@ void main() {
     expect(Bill.fromJson(_billJson(status: 'cancelled')).cancelled, isTrue);
   });
 
+  test('bills from before payments count as paid in full', () {
+    final bill = Bill.fromJson(_billJson());
+    expect(bill.amountPaid, 1800);
+    expect(bill.balance, 0);
+    expect(bill.hasBalance, isFalse);
+  });
+
+  test('part-paid bill has a balance and sorted payments', () {
+    final bill = Bill.fromJson({
+      ..._billJson(),
+      'payment_method': 'cash',
+      'amount_paid': 1000,
+      'payment_status': 'partial',
+      'bill_payments': [
+        {'amount': 300, 'method': 'bank_transfer', 'note': null,
+         'created_by_email': 'a@b.c', 'created_at': '2026-11-06T09:00:00Z'},
+        {'amount': 700, 'method': 'cash', 'note': 'at counter',
+         'created_by_email': 'a@b.c', 'created_at': '2026-11-05T08:30:00Z'},
+      ],
+    });
+    expect(bill.paymentStatus, PaymentStatus.partial);
+    expect(bill.balance, 800);
+    expect(bill.hasBalance, isTrue);
+    expect(bill.payments.map((p) => p.amount), [700, 300]);
+    expect(bill.payments.last.method, PaymentMethod.bankTransfer);
+  });
+
+  test('cancelled bill has nothing to collect', () {
+    final bill = Bill.fromJson({
+      ..._billJson(status: 'cancelled'),
+      'amount_paid': 0,
+      'payment_status': 'unpaid',
+      'payment_method': 'credit',
+    });
+    expect(bill.paymentMethod, PaymentMethod.credit);
+    expect(bill.balance, 1800);
+    expect(bill.hasBalance, isFalse);
+  });
+
+  test('receiving methods exclude credit', () {
+    expect(PaymentMethod.receiving, isNot(contains(PaymentMethod.credit)));
+  });
+
+  test('PDF with a balance due is generated', () async {
+    final bytes = await buildBillPdf(Bill.fromJson({
+      ..._billJson(),
+      'amount_paid': 500,
+      'payment_status': 'partial',
+      'bill_payments': [
+        {'amount': 500, 'method': 'cash', 'note': null,
+         'created_by_email': null, 'created_at': '2026-11-05T08:30:00Z'},
+      ],
+    }));
+    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+  });
+
   test('bill PDF is generated', () async {
     final bytes = await buildBillPdf(Bill.fromJson(_billJson(status: 'cancelled')));
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
