@@ -85,6 +85,9 @@ class _BillsScreenState extends State<BillsScreen> {
     final theme = Theme.of(context);
     final completed = _bills.where((b) => !b.cancelled);
     final total = completed.fold(0.0, (sum, b) => sum + b.total);
+    // Before bill discounts.
+    final parts = completed.fold(0.0, (sum, b) => sum + b.partsTotal);
+    final service = completed.fold(0.0, (sum, b) => sum + b.servicesTotal);
 
     return Scaffold(
       appBar: AppBar(title: Text('Bills • ${widget.branch.name}')),
@@ -136,6 +139,20 @@ class _BillsScreenState extends State<BillsScreen> {
                     color: theme.colorScheme.secondaryContainer,
                   ),
                 ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_outlined, size: 16),
+                const SizedBox(width: 4),
+                Text('Parts ${formatMoney(parts)}'),
+                const SizedBox(width: 16),
+                const Icon(Icons.build_outlined, size: 16),
+                const SizedBox(width: 4),
+                Text('Service ${formatMoney(service)}'),
               ],
             ),
           ),

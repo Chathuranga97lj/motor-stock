@@ -76,9 +76,48 @@ double roundMoney(double v) => (v * 100).roundToDouble() / 100;
 double cartSubtotal(Iterable<CartLine> lines) =>
     roundMoney(lines.fold(0.0, (sum, l) => sum + l.lineTotal));
 
+/// A service from the shop's service list (Lists & branches > Services).
+class ServiceItem {
+  final String id;
+  final String name;
+  final double defaultPrice;
+  final bool active;
+
+  const ServiceItem({
+    required this.id,
+    required this.name,
+    this.defaultPrice = 0,
+    this.active = true,
+  });
+
+  factory ServiceItem.fromJson(Map<String, dynamic> json) => ServiceItem(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        defaultPrice: (json['default_price'] as num?)?.toDouble() ?? 0,
+        active: json['active'] as bool? ?? true,
+      );
+}
+
+/// A service charge on a bill that has not been saved yet. Does not use stock.
+class ServiceLine {
+  final String? serviceId; // null for "Other"
+  String name;
+  double price;
+  int quantity;
+
+  ServiceLine({this.serviceId, required this.name, required this.price, this.quantity = 1});
+
+  double get lineTotal => roundMoney(price * quantity);
+}
+
+double servicesSubtotal(Iterable<ServiceLine> lines) =>
+    roundMoney(lines.fold(0.0, (sum, l) => sum + l.lineTotal));
+
 class BillItem {
+  /// Part name, or the service description for service lines.
   final String partName;
   final String? partNo;
+  final bool isService;
   final int quantity;
   final double unitPrice;
   final double lineTotal;
@@ -86,6 +125,7 @@ class BillItem {
   const BillItem({
     required this.partName,
     this.partNo,
+    this.isService = false,
     required this.quantity,
     required this.unitPrice,
     required this.lineTotal,
@@ -94,6 +134,7 @@ class BillItem {
   factory BillItem.fromJson(Map<String, dynamic> json) => BillItem(
         partName: json['part_name'] as String,
         partNo: json['part_no'] as String?,
+        isService: json['item_type'] == 'service',
         quantity: (json['quantity'] as num).toInt(),
         unitPrice: (json['unit_price'] as num).toDouble(),
         lineTotal: (json['line_total'] as num).toDouble(),
@@ -109,7 +150,11 @@ class Bill {
   final String? branchPhone;
   final String? customerName;
   final String? customerPhone;
+  final String? bikeNo;
   final double subtotal;
+  // Split of the subtotal (before discount).
+  final double partsTotal;
+  final double servicesTotal;
   final double discount;
   final double total;
   final PaymentMethod paymentMethod;
@@ -131,7 +176,10 @@ class Bill {
     this.branchPhone,
     this.customerName,
     this.customerPhone,
+    this.bikeNo,
     required this.subtotal,
+    this.partsTotal = 0,
+    this.servicesTotal = 0,
     required this.discount,
     required this.total,
     required this.paymentMethod,
@@ -146,16 +194,20 @@ class Bill {
   });
 
   static const listColumns = 'id, bill_no, branch_id, customer_name, '
-      'customer_phone, subtotal, discount, total, payment_method, status, '
+      'customer_phone, bike_no, subtotal, parts_total, services_total, '
+      'discount, total, payment_method, status, '
       'amount_paid, payment_status, '
       'cancel_reason, created_by_email, created_at, '
       'branch:branch_id(name, address, phone)';
 
   static const detailColumns = '$listColumns, '
-      'bill_items(part_name, part_no, quantity, unit_price, line_total, sort_order), '
+      'bill_items(item_type, part_name, part_no, quantity, unit_price, line_total, sort_order), '
       'bill_payments(amount, method, note, created_by_email, created_at)';
 
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
+
+  List<BillItem> get partItems => items.where((i) => !i.isService).toList();
+  List<BillItem> get serviceItems => items.where((i) => i.isService).toList();
 
   double get balance => roundMoney(total - amountPaid);
 
@@ -180,7 +232,12 @@ class Bill {
       branchPhone: branch?['phone'] as String?,
       customerName: json['customer_name'] as String?,
       customerPhone: json['customer_phone'] as String?,
+      bikeNo: json['bike_no'] as String?,
       subtotal: (json['subtotal'] as num).toDouble(),
+      // Bills from before services existed were parts only.
+      partsTotal: (json['parts_total'] as num?)?.toDouble() ??
+          (json['subtotal'] as num).toDouble(),
+      servicesTotal: (json['services_total'] as num?)?.toDouble() ?? 0,
       discount: (json['discount'] as num?)?.toDouble() ?? 0,
       total: (json['total'] as num).toDouble(),
       paymentMethod: PaymentMethod.parse(json['payment_method'] as String?),

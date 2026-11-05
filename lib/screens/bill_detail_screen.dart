@@ -255,6 +255,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
         Text(bill.branchName, style: theme.textTheme.titleMedium),
         Text(formatDateTime(bill.createdAt)),
         if (customer.isNotEmpty) Text('Customer: $customer'),
+        if (bill.bikeNo != null) Text('Bike: ${bill.bikeNo}'),
         if (!bill.cancelled) ...[
           const SizedBox(height: 8),
           Align(
@@ -265,17 +266,30 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
         if (bill.issuedBy != null)
           Text('Issued by: ${bill.issuedBy}', style: theme.textTheme.bodySmall),
         const Divider(height: 24),
-        for (final item in bill.items)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(item.partName),
-            subtitle: Text('${item.partNo == null ? '' : '${item.partNo} • '}'
-                '${item.quantity} × ${formatMoney(item.unitPrice)}'),
-            trailing: Text(formatMoney(item.lineTotal),
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-          ),
+        for (final (title, items) in [
+          ('Parts', bill.partItems),
+          ('Service / labour', bill.serviceItems),
+        ])
+          if (items.isNotEmpty) ...[
+            Text(title, style: theme.textTheme.titleSmall),
+            for (final item in items)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(item.partName),
+                subtitle: Text(item.isService && item.quantity == 1
+                    ? 'Service'
+                    : '${item.partNo == null ? '' : '${item.partNo} • '}'
+                        '${item.quantity} × ${formatMoney(item.unitPrice)}'),
+                trailing: Text(formatMoney(item.lineTotal),
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+          ],
         const Divider(height: 24),
-        row('Subtotal', formatMoney(bill.subtotal)),
+        if (bill.partItems.isNotEmpty && bill.serviceItems.isNotEmpty) ...[
+          row('Parts', formatMoney(bill.partsTotal)),
+          row('Service', formatMoney(bill.servicesTotal)),
+        ] else
+          row('Subtotal', formatMoney(bill.subtotal)),
         if (bill.discount > 0) row('Discount', '- ${formatMoney(bill.discount)}'),
         row('Total', formatMoney(bill.total),
             style: theme.textTheme.titleLarge?.copyWith(

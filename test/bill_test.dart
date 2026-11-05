@@ -114,6 +114,62 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
+  test('service lines add to the subtotal without a part', () {
+    final services = [
+      ServiceLine(serviceId: 's1', name: 'Full service', price: 2500),
+      ServiceLine(name: 'Clutch cable fitting', price: 350.5, quantity: 2),
+    ];
+    expect(services[1].lineTotal, 701);
+    expect(servicesSubtotal(services), 3201);
+  });
+
+  test('bill with parts and services splits items and totals', () {
+    final bill = Bill.fromJson({
+      ..._billJson(),
+      'bike_no': 'WP BCD-1234',
+      'subtotal': 4850,
+      'parts_total': 1850,
+      'services_total': 3000,
+      'bill_items': [
+        {'item_type': 'part', 'part_name': 'Brake pad', 'part_no': 'BP-100',
+         'quantity': 2, 'unit_price': 600, 'line_total': 1200, 'sort_order': 1},
+        {'item_type': 'service', 'part_name': 'Full service', 'part_no': null,
+         'quantity': 1, 'unit_price': 2500, 'line_total': 2500, 'sort_order': 2},
+        {'item_type': 'service', 'part_name': 'Brake adjustment', 'part_no': null,
+         'quantity': 1, 'unit_price': 500, 'line_total': 500, 'sort_order': 3},
+      ],
+    });
+    expect(bill.bikeNo, 'WP BCD-1234');
+    expect(bill.partItems.map((i) => i.partName), ['Brake pad']);
+    expect(bill.serviceItems.map((i) => i.partName),
+        ['Full service', 'Brake adjustment']);
+    expect(bill.servicesTotal, 3000);
+  });
+
+  test('older bills without a type are parts only', () {
+    final bill = Bill.fromJson(_billJson());
+    expect(bill.serviceItems, isEmpty);
+    expect(bill.partsTotal, bill.subtotal);
+    expect(bill.servicesTotal, 0);
+  });
+
+  test('PDF with parts and services is generated', () async {
+    final bytes = await buildBillPdf(Bill.fromJson({
+      ..._billJson(),
+      'bike_no': 'WP BCD-1234',
+      'parts_total': 1850,
+      'services_total': 2500,
+      'subtotal': 4350,
+      'bill_items': [
+        {'item_type': 'part', 'part_name': 'Brake pad', 'part_no': null,
+         'quantity': 1, 'unit_price': 1850, 'line_total': 1850, 'sort_order': 0},
+        {'item_type': 'service', 'part_name': 'Full service', 'part_no': null,
+         'quantity': 1, 'unit_price': 2500, 'line_total': 2500, 'sort_order': 1},
+      ],
+    }));
+    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+  });
+
   test('bill PDF is generated', () async {
     final bytes = await buildBillPdf(Bill.fromJson(_billJson(status: 'cancelled')));
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
