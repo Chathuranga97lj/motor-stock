@@ -161,22 +161,74 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
           ListTile(
             leading: Icon(b.isMain ? Icons.store : Icons.storefront_outlined),
             title: Text(b.name),
-            subtitle: b.isMain ? const Text('Main branch') : null,
+            subtitle: Text([
+              if (b.isMain) 'Main branch',
+              if (b.address != null) b.address!,
+              if (b.phone != null) b.phone!,
+              if (b.address == null && b.phone == null)
+                'Add address and phone for bills',
+            ].join(' • ')),
             trailing: IconButton(
-              tooltip: 'Rename',
+              tooltip: 'Edit',
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () async {
-                final name = await showNameDialog(context,
-                    title: 'Rename branch', initial: b.name);
-                if (name == null || LookupService.normalize(name) == b.name) {
-                  return;
-                }
-                await _run(() => _branchService.renameBranch(b, name));
-              },
+              onPressed: () => _editBranch(b),
             ),
           ),
       ],
     );
+  }
+
+  Future<void> _editBranch(Branch b) async {
+    final name = TextEditingController(text: b.name);
+    final address = TextEditingController(text: b.address);
+    final phone = TextEditingController(text: b.phone);
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit branch'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: name,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'Name'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: address,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                    labelText: 'Address', helperText: 'Printed on bills'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                    labelText: 'Phone', helperText: 'Printed on bills'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save')),
+        ],
+      ),
+    );
+    final values = (name.text, address.text, phone.text);
+    for (final c in [name, address, phone]) {
+      c.dispose();
+    }
+    if (save != true || values.$1.trim().isEmpty) return;
+    await _run(() => _branchService.updateBranch(b,
+        name: values.$1, address: values.$2, phone: values.$3));
   }
 
   Widget _simpleList(LookupKind kind) {

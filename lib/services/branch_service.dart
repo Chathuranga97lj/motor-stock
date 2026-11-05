@@ -16,7 +16,7 @@ class BranchService {
   Future<List<Branch>> fetchBranches() async {
     final rows = await _db
         .from('branches')
-        .select('id, name, is_main')
+        .select('id, name, is_main, address, phone')
         .order('is_main', ascending: false)
         .order('name');
     return rows.map(Branch.fromJson).toList();
@@ -25,9 +25,16 @@ class BranchService {
   Future<void> addBranch(String name) => _guard(() =>
       _db.from('branches').insert({'name': LookupService.normalize(name)}));
 
-  Future<void> renameBranch(Branch branch, String name) => _guard(() => _db
-      .from('branches')
-      .update({'name': LookupService.normalize(name)}).eq('id', branch.id));
+  Future<void> updateBranch(Branch branch,
+          {required String name, String? address, String? phone}) =>
+      _guard(() => _db.from('branches').update({
+            'name': LookupService.normalize(name),
+            'address': _blankToNull(address),
+            'phone': _blankToNull(phone),
+          }).eq('id', branch.id));
+
+  static String? _blankToNull(String? s) =>
+      s == null || s.trim().isEmpty ? null : s.trim();
 
   /// The branch this device works in, remembered between app starts.
   Future<String?> loadSelectedBranchId() async {

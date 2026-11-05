@@ -10,11 +10,14 @@ import '../models/profile.dart';
 import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
+import '../utils/money.dart';
 import '../widgets/transfer_sheet.dart';
 import 'manage_lookups_screen.dart';
 import 'part_form_screen.dart';
 import 'transfers_screen.dart';
 import 'users_screen.dart';
+import 'bills_screen.dart';
+import 'new_bill_screen.dart';
 
 class PartsListScreen extends StatefulWidget {
   const PartsListScreen({super.key, required this.profile});
@@ -117,6 +120,23 @@ class _PartsListScreenState extends State<PartsListScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const UsersScreen()),
     );
+  }
+
+  // Bills change stock, so the list reloads after both of these.
+  Future<void> _openBills() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          BillsScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+    ));
+    _load();
+  }
+
+  Future<void> _newBill() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          NewBillScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+    ));
+    _load();
   }
 
   Future<void> _loadLookups() async {
@@ -262,6 +282,11 @@ class _PartsListScreenState extends State<PartsListScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Bills',
+            icon: const Icon(Icons.receipt_long_outlined),
+            onPressed: _branch == null ? null : _openBills,
+          ),
           if (_isSuperAdmin)
             IconButton(
               tooltip: 'Transfer history',
@@ -309,10 +334,26 @@ class _PartsListScreenState extends State<PartsListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('Add part'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'add-part',
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+            foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+            onPressed: () => _openForm(),
+            icon: const Icon(Icons.add),
+            label: const Text('Add part'),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'new-bill',
+            onPressed: _branch == null ? null : _newBill,
+            icon: const Icon(Icons.receipt_long),
+            label: const Text('New bill'),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -504,7 +545,7 @@ class _PartTile extends StatelessWidget {
       title: Text(part.name),
       subtitle: Text(
         '${subtitle.isEmpty ? '' : '$subtitle\n'}'
-        'Price ${part.sellPrice.toStringAsFixed(2)}'
+        '${formatMoney(part.sellPrice)}'
         '${elsewhere.isEmpty ? '' : '\nOther: $elsewhere'}',
       ),
       isThreeLine: subtitle.isNotEmpty || elsewhere.isNotEmpty,

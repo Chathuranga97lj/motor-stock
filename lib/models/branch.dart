@@ -3,13 +3,24 @@ class Branch {
   final String id;
   final String name;
   final bool isMain;
+  // Printed on bills.
+  final String? address;
+  final String? phone;
 
-  const Branch({required this.id, required this.name, this.isMain = false});
+  const Branch({
+    required this.id,
+    required this.name,
+    this.isMain = false,
+    this.address,
+    this.phone,
+  });
 
   factory Branch.fromJson(Map<String, dynamic> json) => Branch(
         id: json['id'] as String,
         name: json['name'] as String,
         isMain: json['is_main'] as bool? ?? false,
+        address: json['address'] as String?,
+        phone: json['phone'] as String?,
       );
 }
 
