@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -7,8 +5,8 @@ import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/part.dart';
 import '../services/bill_service.dart';
-import '../services/parts_service.dart';
 import '../utils/money.dart';
+import '../widgets/part_picker.dart';
 import 'bill_detail_screen.dart';
 
 /// Builds a bill for [branch], saves it and opens the saved bill.
@@ -75,12 +73,8 @@ class _NewBillScreenState extends State<NewBillScreen> {
   int _available(Part p) => p.quantityAt(widget.branch.id);
 
   Future<void> _addPart() async {
-    final part = await showModalBottomSheet<Part>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _PartPicker(branchId: widget.branch.id),
-    );
+    final part = await showPartPicker(context,
+        branchId: widget.branch.id, requireStock: true);
     if (part == null) return;
     setState(() {
       final existing = _lines.where((l) => l.part.id == part.id).firstOrNull;
@@ -361,108 +355,6 @@ class _NewBillScreenState extends State<NewBillScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Search parts and pick one that is in stock at [branchId].
-class _PartPicker extends StatefulWidget {
-  const _PartPicker({required this.branchId});
-
-  final String branchId;
-
-  @override
-  State<_PartPicker> createState() => _PartPickerState();
-}
-
-class _PartPickerState extends State<_PartPicker> {
-  final _service = PartsService();
-  final _search = TextEditingController();
-  Timer? _debounce;
-  List<Part> _parts = [];
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _search.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    try {
-      final parts = await _service.fetchParts(search: _search.text);
-      if (mounted) {
-        setState(() {
-          _parts = parts;
-          _error = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load parts: $e');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.85;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        height: height,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: TextField(
-                controller: _search,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Search name or part no',
-                  isDense: true,
-                ),
-                onChanged: (_) {
-                  _debounce?.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 350), _load);
-                },
-              ),
-            ),
-            if (_loading) const LinearProgressIndicator(),
-            Expanded(
-              child: _error != null
-                  ? Center(child: Text(_error!, textAlign: TextAlign.center))
-                  : ListView.builder(
-                      itemCount: _parts.length,
-                      itemBuilder: (context, i) {
-                        final p = _parts[i];
-                        final qty = p.quantityAt(widget.branchId);
-                        return ListTile(
-                          enabled: qty > 0,
-                          title: Text(p.name),
-                          subtitle: Text([
-                            if (p.partNo != null) p.partNo!,
-                            formatMoney(p.sellPrice),
-                          ].join(' • ')),
-                          trailing: Text(qty > 0 ? '$qty in stock' : 'Out of stock'),
-                          onTap: () => Navigator.pop(context, p),
-                        );
-                      },
-                    ),
-            ),
-          ],
         ),
       ),
     );

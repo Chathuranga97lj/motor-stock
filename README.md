@@ -21,6 +21,7 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
      ```
    - [`supabase/005_bills.sql`](supabase/005_bills.sql) adds bills: numbering per branch (`IBB-000001`, `MEL-000001`), stock taken off when a bill is saved, and put back when a super admin cancels it. Afterwards add each branch's address and phone in **⋮ → Lists & branches → Branches** so they print on bills.
    - [`supabase/006_bill_payments.sql`](supabase/006_bill_payments.sql) adds credit and part payments: **Amount paid now** on a bill, **Record payment** later, the **To collect** list, and Sales vs Collected totals. Existing bills are marked fully paid.
+   - [`supabase/007_purchases.sql`](supabase/007_purchases.sql) adds suppliers and **Stock in**: supplier, invoice number and date, unit costs, paid now or later, **To pay suppliers**, and stock-in history.
 3. **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**. Only you will be able to add staff accounts.
 4. **Deploy the `create-user` Edge Function** so the super admin can add logins from the app:
    1. Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
@@ -41,6 +42,8 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    | Issue, share and print bills | ✅ any branch | ✅ own branch |
    | Cancel bills | ✅ | ❌ |
    | Credit / part-paid bills, record payments, To collect | ✅ any branch | ✅ own branch |
+   | Stock in from suppliers, add a supplier | ✅ any branch | ✅ own branch |
+   | Pay suppliers later, To pay, edit/delete suppliers, cancel stock-in | ✅ | ❌ |
 
    Accounts without a role can sign in but see nothing. These rules are enforced in the database, not only in the app.
 5. **Project Settings → API Keys**: copy the project URL and the **publishable** key. Never put the `service_role` or secret key in the app.
@@ -75,6 +78,14 @@ lib/
   screens/bills_screen.dart       bill history with period totals
   screens/bill_detail_screen.dart view, share, print, record payment, cancel
   screens/to_collect_screen.dart  unpaid and part-paid bills, total owed
+  models/purchase.dart            Supplier, Purchase, PurchaseLine
+  services/purchase_service.dart  suppliers, stock-ins, supplier payments
+  screens/stock_in_screen.dart    supplier, invoice, parts with costs, paid now
+  screens/purchases_screen.dart   stock-in history with Purchased / Paid totals
+  screens/purchase_detail_screen.dart  view, pay supplier, cancel
+  screens/to_pay_screen.dart      what is owed to suppliers, by supplier
+  widgets/part_picker.dart        part search sheet (bills and stock-in)
+  widgets/payment_widgets.dart    payment dialog and status chip
   utils/money.dart                Rs. formatting
   services/parts_service.dart     CRUD, image upload and delete
   services/lookup_service.dart    add, rename, delete list entries
@@ -92,6 +103,7 @@ supabase/003_branches_stock_transfers.sql   branches, stock per branch, transfer
 supabase/004_user_roles.sql                 super admin / admin roles and access rules
 supabase/005_bills.sql                      bills, bill items, create_bill / cancel_bill
 supabase/006_bill_payments.sql              payments, credit bills, add_bill_payment
+supabase/007_purchases.sql                  suppliers, stock-ins, supplier payments
 supabase/functions/create-user/index.ts     Edge Function: create a login with a role
 ```
 

@@ -19,6 +19,9 @@ import 'users_screen.dart';
 import 'bills_screen.dart';
 import 'new_bill_screen.dart';
 import 'to_collect_screen.dart';
+import 'purchases_screen.dart';
+import 'stock_in_screen.dart';
+import 'to_pay_screen.dart';
 
 class PartsListScreen extends StatefulWidget {
   const PartsListScreen({super.key, required this.profile});
@@ -137,6 +140,30 @@ class _PartsListScreenState extends State<PartsListScreen> {
       builder: (_) =>
           ToCollectScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
     ));
+  }
+
+  // Stock-ins change stock, so the list reloads afterwards.
+  Future<void> _stockIn() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          StockInScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+    ));
+    _load();
+  }
+
+  Future<void> _openPurchases() async {
+    if (_branch == null) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) =>
+          PurchasesScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+    ));
+    _load();
+  }
+
+  Future<void> _openToPay() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ToPayScreen()),
+    );
   }
 
   Future<void> _newBill() async {
@@ -336,7 +363,28 @@ class _PartsListScreenState extends State<PartsListScreen> {
                     title: Text('Transfer history'),
                   ),
                 ),
+                PopupMenuItem(
+                  value: _openToPay,
+                  child: const ListTile(
+                    leading: Icon(Icons.local_shipping_outlined),
+                    title: Text('To pay suppliers'),
+                  ),
+                ),
               ],
+              PopupMenuItem(
+                value: _openPurchases,
+                child: const ListTile(
+                  leading: Icon(Icons.inventory_2_outlined),
+                  title: Text('Stock-in history'),
+                ),
+              ),
+              PopupMenuItem(
+                value: () => _openForm(),
+                child: const ListTile(
+                  leading: Icon(Icons.add_box_outlined),
+                  title: Text('Add part (no stock-in)'),
+                ),
+              ),
               PopupMenuItem(
                 value: () => Supabase.instance.client.auth.signOut(),
                 child: const ListTile(
@@ -353,12 +401,12 @@ class _PartsListScreenState extends State<PartsListScreen> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           FloatingActionButton.extended(
-            heroTag: 'add-part',
+            heroTag: 'stock-in',
             backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
             foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
-            onPressed: () => _openForm(),
-            icon: const Icon(Icons.add),
-            label: const Text('Add part'),
+            onPressed: _branch == null ? null : _stockIn,
+            icon: const Icon(Icons.inventory_2_outlined),
+            label: const Text('Stock in'),
           ),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
