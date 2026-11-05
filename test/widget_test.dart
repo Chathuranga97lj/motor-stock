@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:motor_stock/models/branch.dart';
 import 'package:motor_stock/models/lookup.dart';
 import 'package:motor_stock/models/part.dart';
+import 'package:motor_stock/models/profile.dart';
 import 'package:motor_stock/services/lookup_service.dart';
 
 void main() {
@@ -72,6 +73,19 @@ void main() {
     expect(t.fromBranch, 'IBBAGAMUWA');
     expect(t.toBranch, 'MELSIRIPURA');
     expect(t.quantity, 3);
+  });
+
+  test('UserProfile and AppUser parse roles', () {
+    final admin = UserProfile.fromJson({'role': 'admin', 'branch_id': 'sub'});
+    expect(admin.isSuperAdmin, isFalse);
+    expect(admin.branchId, 'sub');
+    expect(UserProfile.fromJson({'role': 'super_admin'}).isSuperAdmin, isTrue);
+
+    final noAccess = AppUser.fromJson(
+        {'user_id': 'u1', 'email': 'a@b.c', 'role': null, 'branch_id': null});
+    expect(noAccess.role, isNull);
+    expect(UserRole.parse('admin'), UserRole.admin);
+    expect(UserRole.parse('owner'), isNull);
   });
 
   test('names are trimmed and upper-cased', () {

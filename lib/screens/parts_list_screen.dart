@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/branch.dart';
 import '../models/lookup.dart';
 import '../models/part.dart';
+import '../models/profile.dart';
 import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
@@ -13,9 +14,13 @@ import '../widgets/transfer_sheet.dart';
 import 'manage_lookups_screen.dart';
 import 'part_form_screen.dart';
 import 'transfers_screen.dart';
+import 'users_screen.dart';
 
 class PartsListScreen extends StatefulWidget {
-  const PartsListScreen({super.key});
+  const PartsListScreen({super.key, required this.profile});
+
+  /// The signed-in user's role; decides which actions are shown.
+  final UserProfile profile;
 
   @override
   State<PartsListScreen> createState() => _PartsListScreenState();
@@ -48,10 +53,15 @@ class _PartsListScreenState extends State<PartsListScreen> {
 
   Branch? get _branch => _branches.where((b) => b.id == _branchId).firstOrNull;
 
+  bool get _isSuperAdmin => widget.profile.isSuperAdmin;
+
   Future<void> _loadBranches() async {
     try {
       final branches = await _branchService.fetchBranches();
-      final saved = _branchId ?? await _branchService.loadSelectedBranchId();
+      // Admins always work in their own branch.
+      final saved = _isSuperAdmin
+          ? _branchId ?? await _branchService.loadSelectedBranchId()
+          : widget.profile.branchId;
       if (!mounted) return;
       setState(() {
         _branches = branches;
@@ -91,7 +101,7 @@ class _PartsListScreenState extends State<PartsListScreen> {
   }
 
   Future<void> _transfer(Part part) async {
-    if (_branches.length < 2) return;
+    if (!_isSuperAdmin || _branches.length < 2) return;
     final done = await showTransferSheet(context,
         part: part, branches: _branches, fromBranchId: _branchId);
     if (done != null) _load();
@@ -100,6 +110,12 @@ class _PartsListScreenState extends State<PartsListScreen> {
   Future<void> _openTransfers() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const TransfersScreen()),
+    );
+  }
+
+  Future<void> _openUsers() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const UsersScreen()),
     );
   }
 
@@ -206,7 +222,11 @@ class _PartsListScreenState extends State<PartsListScreen> {
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PartFormScreen(
-            part: part, branches: _branches, branchId: _branchId),
+          part: part,
+          branches: _branches,
+          branchId: _branchId,
+          isSuperAdmin: _isSuperAdmin,
+        ),
       ),
     );
     if (changed == true) _load();
@@ -242,22 +262,42 @@ class _PartsListScreenState extends State<PartsListScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Transfer history',
-            icon: const Icon(Icons.swap_horiz),
-            onPressed: _openTransfers,
-          ),
+          if (_isSuperAdmin)
+            IconButton(
+              tooltip: 'Transfer history',
+              icon: const Icon(Icons.swap_horiz),
+              onPressed: _openTransfers,
+            ),
           PopupMenuButton<VoidCallback>(
             tooltip: 'More',
             onSelected: (action) => action(),
             itemBuilder: (context) => [
               PopupMenuItem(
-                value: _openManageLists,
-                child: const ListTile(
-                  leading: Icon(Icons.list_alt),
-                  title: Text('Lists & branches'),
+                enabled: false,
+                child: ListTile(
+                  leading: const Icon(Icons.badge_outlined),
+                  title: Text(widget.profile.role.label),
+                  subtitle: Text(
+                      Supabase.instance.client.auth.currentUser?.email ?? ''),
                 ),
               ),
+              const PopupMenuDivider(),
+              if (_isSuperAdmin) ...[
+                PopupMenuItem(
+                  value: _openManageLists,
+                  child: const ListTile(
+                    leading: Icon(Icons.list_alt),
+                    title: Text('Lists & branches'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _openUsers,
+                  child: const ListTile(
+                    leading: Icon(Icons.manage_accounts_outlined),
+                    title: Text('Users'),
+                  ),
+                ),
+              ],
               PopupMenuItem(
                 value: () => Supabase.instance.client.auth.signOut(),
                 child: const ListTile(
