@@ -32,15 +32,21 @@ class PartsService {
   String imageUrl(PartImage image) =>
       _db.storage.from(_bucket).getPublicUrl(image.storagePath);
 
-  Future<List<Part>> fetchParts({String search = ''}) async {
-    var query = _db.from('parts').select('*, part_images(*)');
+  Future<List<Part>> fetchParts({
+    String search = '',
+    String? categoryId,
+    String? brandId,
+    String? bikeModelId,
+  }) async {
+    var query = _db.from('parts').select(Part.selectColumns);
     // Strip characters that have meaning in PostgREST filter syntax.
     final q = search.replaceAll(RegExp(r'[,()%*]'), ' ').trim();
     if (q.isNotEmpty) {
-      query = query.or(
-        'name.ilike.%$q%,part_no.ilike.%$q%,brand.ilike.%$q%,bike_model.ilike.%$q%',
-      );
+      query = query.or('name.ilike.%$q%,part_no.ilike.%$q%');
     }
+    if (categoryId != null) query = query.eq('category_id', categoryId);
+    if (brandId != null) query = query.eq('brand_id', brandId);
+    if (bikeModelId != null) query = query.eq('bike_model_id', bikeModelId);
     final rows = await query.order('name');
     return rows.map(Part.fromJson).toList();
   }

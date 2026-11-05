@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="gear" x1="0" y1="0" x2="1024" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0.36" stop-color="#1E4FE0"/>
+      
+      <stop offset="0.64" stop-color="#F0301E"/>
+      <stop offset="1" stop-color="#FF6A1A"/>
+    </linearGradient>
+    <linearGradient id="red" x1="0" y1="-220" x2="0" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF4A2E"/>
+      <stop offset="1" stop-color="#C4101A"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#17327F"/>
+      <stop offset="1" stop-color="#081430"/>
+    </radialGradient>
+  </defs><rect width="1024" height="1024" fill="url(#bg)"/><g transform="translate(512 512) scale(0.86) translate(-512 -512)">
+    <path fill-rule="evenodd" fill="url(#gear)" d="M436.9,106.9 L458.8,45.0 L565.2,45.0 L587.1,106.9 L689.4,140.1 L743.4,102.9 L829.5,165.5 L810.9,228.4 L874.1,315.4 L939.7,317.1 L972.6,418.3 L920.5,458.2 L920.5,565.8 L972.6,605.7 L939.7,706.9 L874.1,708.6 L810.9,795.6 L829.5,858.5 L743.4,921.1 L689.4,883.9 L587.1,917.1 L565.2,979.0 L458.8,979.0 L436.9,917.1 L334.6,883.9 L280.6,921.1 L194.5,858.5 L213.1,795.6 L149.9,708.6 L84.3,706.9 L51.4,605.7 L103.5,565.8 L103.5,458.2 L51.4,418.3 L84.3,317.1 L149.9,315.4 L213.1,228.4 L194.5,165.5 L280.6,102.9 L334.6,140.1Z M140,512 a372,372 0 1,0 744,0 a372,372 0 1,0 -744,0Z"/>
+    
+  <g>
+    <path d="M236,430 h96 l-14,28 h-96 z" fill="#2F6BFF"/>
+    <path d="M206,490 h112 l-14,28 h-112 z" fill="#FFFFFF" opacity="0.9"/>
+    <path d="M226,550 h78 l-14,28 h-78 z" fill="#FF3B2F"/>
+  </g>
+    
+  <g transform="translate(530 494) skewX(-14)">
+    <path fill-rule="evenodd" fill="url(#red)" d="
+      M-90,-180 h180 a80,80 0 0 1 80,80 v200 a80,80 0 0 1 -80,80 h-180 a80,80 0 0 1 -80,-80 v-200 a80,80 0 0 1 80,-80 Z
+      M-52,-104 h104 a34,34 0 0 1 34,34 v140 a34,34 0 0 1 -34,34 h-104 a34,34 0 0 1 -34,-34 v-140 a34,34 0 0 1 34,-34 Z"/>
+  </g>
+  <g fill="#FFC400">
+    <path d="M330,714 h330 l-20,38 h-330 z"/>
+  </g>
+  </g></svg>

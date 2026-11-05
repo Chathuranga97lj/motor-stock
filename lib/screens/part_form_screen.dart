@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models/lookup.dart';
 import '../models/part.dart';
+import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
+import '../widgets/lookup_widgets.dart';
 
 class PartFormScreen extends StatefulWidget {
   const PartFormScreen({super.key, this.part});
@@ -17,14 +20,16 @@ class PartFormScreen extends StatefulWidget {
 
 class _PartFormScreenState extends State<PartFormScreen> {
   final _service = PartsService();
+  final _lookupService = LookupService();
   final _picker = ImagePicker();
   final _formKey = GlobalKey<FormState>();
 
   late final _name = TextEditingController(text: widget.part?.name);
   late final _partNo = TextEditingController(text: widget.part?.partNo);
-  late final _brand = TextEditingController(text: widget.part?.brand);
-  late final _bikeModel = TextEditingController(text: widget.part?.bikeModel);
-  late final _category = TextEditingController(text: widget.part?.category);
+  late String? _categoryId = widget.part?.categoryId;
+  late String? _brandId = widget.part?.brandId;
+  late String? _modelId = widget.part?.bikeModelId;
+  Lookups _lookups = const Lookups();
   late final _quantity =
       TextEditingController(text: '${widget.part?.quantity ?? 0}');
   late final _buyPrice = TextEditingController(
@@ -43,14 +48,32 @@ class _PartFormScreenState extends State<PartFormScreen> {
   int get _imageCount => _existingImages.length + _newImages.length;
 
   @override
+  void initState() {
+    super.initState();
+    _loadLookups();
+  }
+
+  @override
   void dispose() {
-    for (final c in [
-      _name, _partNo, _brand, _bikeModel, _category, //
-      _quantity, _buyPrice, _sellPrice, _lowStock,
-    ]) {
+    for (final c in [_name, _partNo, _quantity, _buyPrice, _sellPrice, _lowStock]) {
       c.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _loadLookups() async {
+    try {
+      final lookups = await _lookupService.fetchAll();
+      if (mounted) setState(() => _lookups = lookups);
+    } catch (e) {
+      _showError('Could not load lists: $e');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _pickImages(ImageSource source) async {
@@ -94,9 +117,9 @@ class _PartFormScreenState extends State<PartFormScreen> {
       id: widget.part?.id,
       name: _name.text.trim(),
       partNo: opt(_partNo),
-      brand: opt(_brand),
-      bikeModel: opt(_bikeModel),
-      category: opt(_category),
+      categoryId: _categoryId,
+      brandId: _brandId,
+      bikeModelId: _brandId == null ? null : _modelId,
       quantity: int.parse(_quantity.text),
       buyPrice: double.tryParse(_buyPrice.text) ?? 0,
       sellPrice: double.tryParse(_sellPrice.text) ?? 0,
@@ -175,12 +198,30 @@ class _PartFormScreenState extends State<PartFormScreen> {
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null),
               _field(_partNo, 'Part number'),
-              Row(children: [
-                Expanded(child: _field(_brand, 'Brand')),
-                const SizedBox(width: 12),
-                Expanded(child: _field(_bikeModel, 'Bike model')),
-              ]),
-              _field(_category, 'Category (e.g. Brakes, Engine)'),
+              LookupDropdown(
+                label: LookupKind.category.label,
+                items: _lookups.categories,
+                selectedId: _categoryId,
+                onChanged: (id) => setState(() => _categoryId = id),
+              ),
+              LookupDropdown(
+                label: LookupKind.brand.label,
+                items: _lookups.brands,
+                selectedId: _brandId,
+                onChanged: (id) => setState(() {
+                  if (id != _brandId) _modelId = null;
+                  _brandId = id;
+                }),
+              ),
+              LookupDropdown(
+                label: LookupKind.model.label,
+                items: _lookups.modelsOf(_brandId),
+                selectedId: _modelId,
+                hint: _brandId == null ? 'Choose a brand first' : null,
+                onChanged: _brandId == null
+                    ? null
+                    : (id) => setState(() => _modelId = id),
+              ),
               Row(children: [
                 Expanded(child: _intField(_quantity, 'Quantity *')),
                 const SizedBox(width: 12),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../theme.dart';
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -56,12 +58,11 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(Icons.two_wheeler,
-                      size: 72, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(height: 8),
-                  Text('Motor Stock',
+                  const BrandLogo(),
+                  const SizedBox(height: 12),
+                  Text('Stock Manager',
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineMedium),
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 32),
                   TextFormField(
                     controller: _email,

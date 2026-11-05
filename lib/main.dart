@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/parts_list_screen.dart';
+import 'theme.dart';
 
 // Pass these at build/run time, e.g.
 // flutter run --dart-define-from-file=env.json
@@ -25,13 +26,9 @@ class MotorStockApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Motor Stock',
+      title: 'OSHU Stock',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepOrange),
-        inputDecorationTheme:
-            const InputDecorationTheme(border: OutlineInputBorder()),
-      ),
+      theme: buildTheme(),
       home: const _AuthGate(),
     );
   }
