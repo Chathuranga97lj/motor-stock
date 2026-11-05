@@ -19,6 +19,8 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
      select id, 'super_admin' from auth.users where email = 'you@example.com'
      on conflict (user_id) do update set role = 'super_admin', branch_id = null;
      ```
+   - [`supabase/005_bills.sql`](supabase/005_bills.sql) adds bills: numbering per branch (`IBB-000001`, `MEL-000001`), stock taken off when a bill is saved, and put back when a super admin cancels it. Afterwards add each branch's address and phone in **⋮ → Lists & branches → Branches** so they print on bills.
+   - [`supabase/006_bill_payments.sql`](supabase/006_bill_payments.sql) adds credit and part payments: **Amount paid now** on a bill, **Record payment** later, the **To collect** list, and Sales vs Collected totals. Existing bills are marked fully paid.
 3. **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**. Only you will be able to add staff accounts.
 4. **Deploy the `create-user` Edge Function** so the super admin can add logins from the app:
    1. Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
@@ -36,6 +38,9 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    | Delete parts | ✅ | ❌ |
    | Transfer stock, transfer history | ✅ | ❌ |
    | Lists & branches, Users | ✅ | ❌ |
+   | Issue, share and print bills | ✅ any branch | ✅ own branch |
+   | Cancel bills | ✅ | ❌ |
+   | Credit / part-paid bills, record payments, To collect | ✅ any branch | ✅ own branch |
 
    Accounts without a role can sign in but see nothing. These rules are enforced in the database, not only in the app.
 5. **Project Settings → API Keys**: copy the project URL and the **publishable** key. Never put the `service_role` or secret key in the app.
@@ -63,6 +68,14 @@ lib/
   services/profile_service.dart   signed-in role, list users, set roles
   screens/users_screen.dart       super admin assigns roles and branches
   screens/add_user_screen.dart    super admin creates a login with role and branch
+  models/bill.dart                Bill, BillItem, CartLine, PaymentMethod
+  services/bill_service.dart      create, list, load and cancel bills
+  services/bill_pdf.dart          A5 PDF bill, share and print
+  screens/new_bill_screen.dart    pick parts, customer, discount, payment
+  screens/bills_screen.dart       bill history with period totals
+  screens/bill_detail_screen.dart view, share, print, record payment, cancel
+  screens/to_collect_screen.dart  unpaid and part-paid bills, total owed
+  utils/money.dart                Rs. formatting
   services/parts_service.dart     CRUD, image upload and delete
   services/lookup_service.dart    add, rename, delete list entries
   services/branch_service.dart    branches, per-branch stock, transfers
@@ -77,6 +90,8 @@ supabase/schema.sql                         base tables and storage
 supabase/002_categories_brands_models.sql   dropdown lists
 supabase/003_branches_stock_transfers.sql   branches, stock per branch, transfers
 supabase/004_user_roles.sql                 super admin / admin roles and access rules
+supabase/005_bills.sql                      bills, bill items, create_bill / cancel_bill
+supabase/006_bill_payments.sql              payments, credit bills, add_bill_payment
 supabase/functions/create-user/index.ts     Edge Function: create a login with a role
 ```
 
