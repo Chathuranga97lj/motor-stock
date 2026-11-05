@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/bill.dart';
 import '../services/bill_pdf.dart';
 import '../services/bill_service.dart';
 import '../utils/money.dart';
+import '../widgets/payment_widgets.dart';
 
 /// One saved bill, with Share, Print and (super admin) Cancel.
 class BillDetailScreen extends StatefulWidget {
@@ -67,10 +67,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
 
   Future<void> _recordPayment() async {
     final bill = _bill!;
-    final result = await showDialog<_PaymentInput>(
-      context: context,
-      builder: (_) => _PaymentDialog(balance: bill.balance),
-    );
+    final result = await showPaymentDialog(context, balance: bill.balance);
     if (result == null) return;
     await _run(() async {
       await _service.addPayment(bill.id,
@@ -262,7 +259,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
-            child: _StatusChip(status: bill.paymentStatus),
+            child: PaymentStatusChip(status: bill.paymentStatus),
           ),
         ],
         if (bill.issuedBy != null)
@@ -308,123 +305,6 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
               if (p.note != null) p.note!,
             ].join(' • ')),
           ),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final PaymentStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final (bg, fg) = switch (status) {
-      PaymentStatus.paid => (scheme.secondaryContainer, scheme.onSecondaryContainer),
-      PaymentStatus.partial => (scheme.tertiaryContainer, scheme.onTertiaryContainer),
-      PaymentStatus.unpaid => (scheme.errorContainer, scheme.onErrorContainer),
-    };
-    return Chip(
-      label: Text(status.label),
-      backgroundColor: bg,
-      labelStyle: TextStyle(color: fg, fontWeight: FontWeight.w600),
-      side: BorderSide.none,
-      visualDensity: VisualDensity.compact,
-    );
-  }
-}
-
-typedef _PaymentInput = ({double amount, PaymentMethod method, String? note});
-
-/// Amount (defaults to the full balance), method and note.
-class _PaymentDialog extends StatefulWidget {
-  const _PaymentDialog({required this.balance});
-
-  final double balance;
-
-  @override
-  State<_PaymentDialog> createState() => _PaymentDialogState();
-}
-
-class _PaymentDialogState extends State<_PaymentDialog> {
-  late final _amount =
-      TextEditingController(text: widget.balance.toStringAsFixed(2));
-  final _note = TextEditingController();
-  PaymentMethod _method = PaymentMethod.cash;
-
-  @override
-  void dispose() {
-    _amount.dispose();
-    _note.dispose();
-    super.dispose();
-  }
-
-  double get _value => roundMoney(double.tryParse(_amount.text) ?? 0);
-
-  String? get _error {
-    if (_value <= 0) return 'Enter an amount';
-    if (_value > widget.balance) return 'More than the balance';
-    return null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Record payment'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Balance due: ${formatMoney(widget.balance)}'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _amount,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              decoration: InputDecoration(
-                labelText: 'Amount ($currencySymbol)',
-                errorText: _amount.text.isEmpty ? null : _error,
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            SegmentedButton<PaymentMethod>(
-              segments: [
-                for (final m in PaymentMethod.receiving)
-                  ButtonSegment(value: m, label: Text(m.shortLabel)),
-              ],
-              selected: {_method},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) => setState(() => _method = s.first),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _note,
-              decoration: const InputDecoration(labelText: 'Note (optional)'),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel')),
-        FilledButton(
-          onPressed: _error != null
-              ? null
-              : () => Navigator.pop<_PaymentInput>(context, (
-                    amount: _value,
-                    method: _method,
-                    note: _note.text.trim().isEmpty ? null : _note.text.trim(),
-                  )),
-          child: const Text('Save'),
-        ),
       ],
     );
   }

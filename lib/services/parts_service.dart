@@ -51,9 +51,16 @@ class PartsService {
     return rows.map(Part.fromJson).toList();
   }
 
+  Future<Part> fetchPart(String id) async {
+    final row =
+        await _db.from('parts').select(Part.selectColumns).eq('id', id).single();
+    return Part.fromJson(row);
+  }
+
   /// Inserts or updates [part], sets [stock] (branch id -> quantity) for the
   /// given branches, removes [removedImages] and uploads [newImages].
-  Future<void> savePart(
+  /// Returns the part's id.
+  Future<String> savePart(
     Part part, {
     Map<String, int> stock = const {},
     List<PartImage> removedImages = const [],
@@ -100,6 +107,7 @@ class PartsService {
         'sort_order': keptCount + index,
       });
     }
+    return partId;
   }
 
   Future<void> deletePart(Part part) async {

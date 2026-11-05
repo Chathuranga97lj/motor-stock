@@ -17,10 +17,15 @@ class PartFormScreen extends StatefulWidget {
     required this.branches,
     this.branchId,
     this.isSuperAdmin = false,
+    this.forStockIn = false,
   });
 
   /// Only a super admin can delete parts and transfer stock.
   final bool isSuperAdmin;
+
+  /// Creating a part from the Stock in screen: no stock fields (the stock-in
+  /// adds the quantity), and the screen pops with the new part's id.
+  final bool forStockIn;
 
   /// Null when adding a new part.
   final Part? part;
@@ -184,11 +189,11 @@ class _PartFormScreenState extends State<PartFormScreen> {
     );
 
     try {
-      await _service.savePart(part,
-          stock: _stockToSave(),
+      final id = await _service.savePart(part,
+          stock: widget.forStockIn ? const {} : _stockToSave(),
           removedImages: _removedImages,
           newImages: _newImages);
-      if (mounted) Navigator.of(context).pop(true);
+      if (mounted) Navigator.of(context).pop(widget.forStockIn ? id : true);
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
@@ -246,7 +251,11 @@ class _PartFormScreenState extends State<PartFormScreen> {
         widget.isSuperAdmin && _isEdit && widget.branches.length > 1;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isEdit ? 'Edit part' : 'Add part'),
+        title: Text(_isEdit
+            ? 'Edit part'
+            : widget.forStockIn
+                ? 'New part for stock-in'
+                : 'Add part'),
         actions: [
           if (canTransfer)
             IconButton(
@@ -299,7 +308,7 @@ class _PartFormScreenState extends State<PartFormScreen> {
                     ? null
                     : (id) => setState(() => _modelId = id),
               ),
-              _buildStock(canTransfer),
+              if (!widget.forStockIn) _buildStock(canTransfer),
               _intField(_lowStock, 'Low stock alert at (per branch)'),
               Row(children: [
                 Expanded(child: _priceField(_buyPrice, 'Buy price')),
