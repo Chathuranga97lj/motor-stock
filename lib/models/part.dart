@@ -30,7 +30,8 @@ class Part {
   final String? categoryName;
   final String? brandName;
   final String? bikeModelName;
-  final int quantity;
+  /// Quantity per branch id. A missing branch means 0.
+  final Map<String, int> stock;
   final double buyPrice;
   final double sellPrice;
   final int lowStockLevel;
@@ -47,7 +48,7 @@ class Part {
     this.categoryName,
     this.brandName,
     this.bikeModelName,
-    this.quantity = 0,
+    this.stock = const {},
     this.buyPrice = 0,
     this.sellPrice = 0,
     this.lowStockLevel = 2,
@@ -55,10 +56,33 @@ class Part {
     this.images = const [],
   });
 
-  bool get isLowStock => quantity <= lowStockLevel;
+  int quantityAt(String? branchId) => stock[branchId] ?? 0;
 
-  /// Columns to select so the linked names come back with each part.
+  Part withStock(Map<String, int> stock) => Part(
+        id: id,
+        name: name,
+        partNo: partNo,
+        categoryId: categoryId,
+        brandId: brandId,
+        bikeModelId: bikeModelId,
+        categoryName: categoryName,
+        brandName: brandName,
+        bikeModelName: bikeModelName,
+        stock: stock,
+        buyPrice: buyPrice,
+        sellPrice: sellPrice,
+        lowStockLevel: lowStockLevel,
+        updatedAt: updatedAt,
+        images: images,
+      );
+
+  int get totalQuantity => stock.values.fold(0, (a, b) => a + b);
+
+  bool isLowStockAt(String? branchId) => quantityAt(branchId) <= lowStockLevel;
+
+  /// Columns to select so the linked names and stock come back with each part.
   static const selectColumns = '*, part_images(*), '
+      'stock_levels(branch_id, quantity), '
       'category:category_id(name), brand:brand_id(name), '
       'bike_model:bike_model_id(name)';
 
@@ -80,7 +104,11 @@ class Part {
       categoryName: nameOf('category'),
       brandName: nameOf('brand'),
       bikeModelName: nameOf('bike_model'),
-      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      stock: {
+        for (final row in (json['stock_levels'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>())
+          row['branch_id'] as String: (row['quantity'] as num).toInt(),
+      },
       buyPrice: (json['buy_price'] as num?)?.toDouble() ?? 0,
       sellPrice: (json['sell_price'] as num?)?.toDouble() ?? 0,
       lowStockLevel: (json['low_stock_level'] as num?)?.toInt() ?? 2,
@@ -98,7 +126,6 @@ class Part {
         'category_id': categoryId,
         'brand_id': brandId,
         'bike_model_id': bikeModelId,
-        'quantity': quantity,
         'buy_price': buyPrice,
         'sell_price': sellPrice,
         'low_stock_level': lowStockLevel,

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../models/branch.dart';
 import '../models/lookup.dart';
+import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../widgets/lookup_widgets.dart';
 
-/// Add, rename and delete categories, brands and bike models.
+/// Add, rename and delete categories, brands and bike models;
+/// add and rename shop branches.
 class ManageLookupsScreen extends StatefulWidget {
   const ManageLookupsScreen({super.key});
 
@@ -14,7 +17,9 @@ class ManageLookupsScreen extends StatefulWidget {
 
 class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   final _service = LookupService();
+  final _branchService = BranchService();
   Lookups _lookups = const Lookups();
+  List<Branch> _branches = [];
   bool _loading = true;
   String? _error;
 
@@ -26,10 +31,12 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
 
   Future<void> _load() async {
     try {
-      final lookups = await _service.fetchAll();
+      final (lookups, branches) =
+          await (_service.fetchAll(), _branchService.fetchBranches()).wait;
       if (mounted) {
         setState(() {
           _lookups = lookups;
+          _branches = branches;
           _error = null;
         });
       }
@@ -109,15 +116,20 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: LookupKind.values.length,
+      length: LookupKind.values.length + 1,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Lists'),
+          title: const Text('Lists & branches'),
           bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Theme.of(context).colorScheme.tertiary,
-            tabs: [for (final k in LookupKind.values) Tab(text: k.pluralLabel)],
+            tabs: [
+              for (final k in LookupKind.values) Tab(text: k.pluralLabel),
+              const Tab(text: 'Branches'),
+            ],
           ),
         ),
         body: _loading
@@ -128,8 +140,42 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
                     _simpleList(LookupKind.category),
                     _simpleList(LookupKind.brand),
                     _modelsList(),
+                    _branchesList(),
                   ]),
       ),
+    );
+  }
+
+  // Branches can be added and renamed but not deleted, because their
+  // stock and transfer history must stay intact.
+  Widget _branchesList() {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        _addTile('Add branch', () async {
+          final name = await showNameDialog(context, title: 'New branch');
+          if (name != null) await _run(() => _branchService.addBranch(name));
+        }),
+        const Divider(height: 1),
+        for (final b in _branches)
+          ListTile(
+            leading: Icon(b.isMain ? Icons.store : Icons.storefront_outlined),
+            title: Text(b.name),
+            subtitle: b.isMain ? const Text('Main branch') : null,
+            trailing: IconButton(
+              tooltip: 'Rename',
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: () async {
+                final name = await showNameDialog(context,
+                    title: 'Rename branch', initial: b.name);
+                if (name == null || LookupService.normalize(name) == b.name) {
+                  return;
+                }
+                await _run(() => _branchService.renameBranch(b, name));
+              },
+            ),
+          ),
+      ],
     );
   }
 

@@ -51,9 +51,11 @@ class PartsService {
     return rows.map(Part.fromJson).toList();
   }
 
-  /// Inserts or updates [part], removes [removedImages] and uploads [newImages].
+  /// Inserts or updates [part], sets [stock] (branch id -> quantity) for the
+  /// given branches, removes [removedImages] and uploads [newImages].
   Future<void> savePart(
     Part part, {
+    Map<String, int> stock = const {},
     List<PartImage> removedImages = const [],
     List<NewImage> newImages = const [],
   }) async {
@@ -65,6 +67,13 @@ class PartsService {
     } else {
       partId = part.id!;
       await _db.from('parts').update(part.toRow()).eq('id', partId);
+    }
+
+    if (stock.isNotEmpty) {
+      await _db.from('stock_levels').upsert([
+        for (final e in stock.entries)
+          {'part_id': partId, 'branch_id': e.key, 'quantity': e.value},
+      ]);
     }
 
     if (removedImages.isNotEmpty) {
@@ -100,11 +109,5 @@ class PartsService {
           .remove(part.images.map((i) => i.storagePath).toList());
     }
     await _db.from('parts').delete().eq('id', part.id!);
-  }
-
-  /// Adds [delta] (can be negative) to the part's quantity.
-  Future<void> adjustQuantity(Part part, int delta) async {
-    final next = (part.quantity + delta).clamp(0, 1 << 31);
-    await _db.from('parts').update({'quantity': next}).eq('id', part.id!);
   }
 }

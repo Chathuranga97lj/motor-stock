@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:motor_stock/models/branch.dart';
 import 'package:motor_stock/models/lookup.dart';
 import 'package:motor_stock/models/part.dart';
 import 'package:motor_stock/services/lookup_service.dart';
@@ -15,7 +16,10 @@ void main() {
       'category': {'name': 'BODY PARTS'},
       'brand': {'name': 'HONDA'},
       'bike_model': {'name': 'DIO BS4'},
-      'quantity': 1,
+      'stock_levels': [
+        {'branch_id': 'main', 'quantity': 1},
+        {'branch_id': 'sub', 'quantity': 7},
+      ],
       'buy_price': 450,
       'sell_price': 600.5,
       'low_stock_level': 2,
@@ -27,7 +31,13 @@ void main() {
     });
 
     expect(part.name, 'Brake pad');
-    expect(part.isLowStock, isTrue);
+    expect(part.quantityAt('main'), 1);
+    expect(part.quantityAt('sub'), 7);
+    expect(part.quantityAt('other'), 0);
+    expect(part.totalQuantity, 8);
+    expect(part.isLowStockAt('main'), isTrue);
+    expect(part.isLowStockAt('sub'), isFalse);
+    expect(part.toRow().containsKey('quantity'), isFalse);
     expect(part.images.map((i) => i.id), ['i1', 'i2']);
     expect(part.brandName, 'HONDA');
     expect(part.bikeModelName, 'DIO BS4');
@@ -47,6 +57,21 @@ void main() {
     ]);
     expect(lookups.modelsOf('honda').map((m) => m.name), ['DIO OLD']);
     expect(lookups.modelsOf(null), isEmpty);
+  });
+
+  test('StockTransfer.fromJson reads linked names', () {
+    final t = StockTransfer.fromJson({
+      'id': 't1',
+      'quantity': 3,
+      'note': null,
+      'created_at': '2026-11-05T08:30:00Z',
+      'part': {'name': 'Brake pad', 'part_no': 'BP-100'},
+      'from_branch': {'name': 'IBBAGAMUWA'},
+      'to_branch': {'name': 'MELSIRIPURA'},
+    });
+    expect(t.fromBranch, 'IBBAGAMUWA');
+    expect(t.toBranch, 'MELSIRIPURA');
+    expect(t.quantity, 3);
   });
 
   test('names are trimmed and upper-cased', () {
