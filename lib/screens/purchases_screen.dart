@@ -5,6 +5,7 @@ import '../models/branch.dart';
 import '../models/purchase.dart';
 import '../services/purchase_service.dart';
 import '../utils/money.dart';
+import '../theme.dart';
 import 'purchase_detail_screen.dart';
 import 'stock_in_screen.dart';
 
@@ -31,7 +32,11 @@ enum _Period {
 
 /// Stock-in history of [branch], with Purchased and Paid totals.
 class PurchasesScreen extends StatefulWidget {
-  const PurchasesScreen({super.key, required this.branch, this.isSuperAdmin = false});
+  const PurchasesScreen({
+    super.key,
+    required this.branch,
+    this.isSuperAdmin = false,
+  });
 
   final Branch branch;
   final bool isSuperAdmin;
@@ -53,9 +58,12 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   @override
   void initState() {
     super.initState();
-    _service.fetchSuppliers().then((s) {
-      if (mounted) setState(() => _suppliers = s);
-    }).catchError((_) {});
+    _service
+        .fetchSuppliers()
+        .then((s) {
+          if (mounted) setState(() => _suppliers = s);
+        })
+        .catchError((_) {});
     _load();
   }
 
@@ -64,13 +72,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     try {
       final (purchases, paid) = await (
         _service.fetchPurchases(
-            branchId: widget.branch.id,
-            from: _period.from,
-            supplierId: _supplierId),
+          branchId: widget.branch.id,
+          from: _period.from,
+          supplierId: _supplierId,
+        ),
         _service.fetchPaid(
-            branchId: widget.branch.id,
-            from: _period.from,
-            supplierId: _supplierId),
+          branchId: widget.branch.id,
+          from: _period.from,
+          supplierId: _supplierId,
+        ),
       ).wait;
       if (mounted) {
         setState(() {
@@ -101,8 +111,12 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
       appBar: AppBar(title: Text('Stock-ins • ${widget.branch.name}')),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'stock-in',
-        onPressed: () => _open(StockInScreen(
-            branch: widget.branch, isSuperAdmin: widget.isSuperAdmin)),
+        onPressed: () => _open(
+          StockInScreen(
+            branch: widget.branch,
+            isSuperAdmin: widget.isSuperAdmin,
+          ),
+        ),
         icon: const Icon(Icons.add),
         label: const Text('Stock in'),
       ),
@@ -128,11 +142,15 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             child: DropdownButtonFormField<String?>(
               initialValue: _supplierId,
               isExpanded: true,
-              decoration:
-                  const InputDecoration(labelText: 'Supplier', isDense: true),
+              decoration: const InputDecoration(
+                labelText: 'Supplier',
+                isDense: true,
+              ),
               items: [
                 const DropdownMenuItem<String?>(
-                    value: null, child: Text('All suppliers')),
+                  value: null,
+                  child: Text('All suppliers'),
+                ),
                 for (final s in _suppliers)
                   DropdownMenuItem<String?>(value: s.id, child: Text(s.name)),
               ],
@@ -147,14 +165,23 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             child: Row(
               children: [
                 Expanded(
-                  child: _totalCard(theme, 'Purchased', purchased,
-                      '${active.length} stock-ins',
-                      theme.colorScheme.primaryContainer),
+                  child: _totalCard(
+                    theme,
+                    'Purchased',
+                    purchased,
+                    '${active.length} stock-ins',
+                    theme.colorScheme.primaryContainer,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _totalCard(theme, 'Paid to suppliers', _paid,
-                      'money given', theme.colorScheme.secondaryContainer),
+                  child: _totalCard(
+                    theme,
+                    'Paid to suppliers',
+                    _paid,
+                    'money given',
+                    theme.colorScheme.secondaryContainer,
+                  ),
                 ),
               ],
             ),
@@ -167,7 +194,12 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   Widget _totalCard(
-      ThemeData theme, String label, double value, String note, Color color) {
+    ThemeData theme,
+    String label,
+    double value,
+    String note,
+    Color color,
+  ) {
     return Card(
       margin: EdgeInsets.zero,
       color: color,
@@ -180,9 +212,12 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(formatMoney(value),
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold)),
+              child: Text(
+                formatMoney(value),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             Text(note, style: theme.textTheme.bodySmall),
           ],
@@ -206,42 +241,53 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     final scheme = Theme.of(context).colorScheme;
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.separated(
+      child: ListView.builder(
         padding: const EdgeInsets.only(bottom: 88),
         itemCount: _purchases.length,
-        separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (context, i) {
           final p = _purchases[i];
-          return ListTile(
-            leading: Icon(
-              p.cancelled ? Icons.cancel_outlined : Icons.inventory_2_outlined,
-              color: p.cancelled ? scheme.error : scheme.primary,
-            ),
-            title: Text(p.supplierName),
-            subtitle: Text([
-              p.purchaseNo,
-              if (p.invoiceNo != null) 'Inv ${p.invoiceNo}',
-              formatDateTime(p.createdAt).substring(0, 10),
-              if (!p.cancelled) p.paymentStatus.label,
-            ].join(' • ')),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  p.cancelled ? 'Cancelled' : formatMoney(p.total),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: p.cancelled ? scheme.error : null,
+          return TileCard(
+            child: ListTile(
+              leading: Icon(
+                p.cancelled
+                    ? Icons.cancel_outlined
+                    : Icons.inventory_2_outlined,
+                color: p.cancelled ? scheme.error : scheme.primary,
+              ),
+              title: Text(p.supplierName),
+              subtitle: Text(
+                [
+                  p.purchaseNo,
+                  if (p.invoiceNo != null) 'Inv ${p.invoiceNo}',
+                  formatDateTime(p.createdAt).substring(0, 10),
+                  if (!p.cancelled) p.paymentStatus.label,
+                ].join(' • '),
+              ),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    p.cancelled ? 'Cancelled' : formatMoney(p.total),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: p.cancelled ? scheme.error : null,
+                    ),
                   ),
+                  if (p.hasBalance)
+                    Text(
+                      'To pay ${formatMoney(p.balance)}',
+                      style: TextStyle(fontSize: 12, color: scheme.error),
+                    ),
+                ],
+              ),
+              onTap: () => _open(
+                PurchaseDetailScreen(
+                  purchaseId: p.id,
+                  isSuperAdmin: widget.isSuperAdmin,
                 ),
-                if (p.hasBalance)
-                  Text('To pay ${formatMoney(p.balance)}',
-                      style: TextStyle(fontSize: 12, color: scheme.error)),
-              ],
+              ),
             ),
-            onTap: () => _open(PurchaseDetailScreen(
-                purchaseId: p.id, isSuperAdmin: widget.isSuperAdmin)),
           );
         },
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/branch.dart';
 import '../services/branch_service.dart';
+import '../theme.dart';
 
 /// Recent stock transfers between branches, newest first.
 class TransfersScreen extends StatefulWidget {
@@ -51,25 +52,27 @@ class _TransfersScreenState extends State<TransfersScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(_error!, textAlign: TextAlign.center),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  child: _transfers.isEmpty
-                      ? ListView(children: const [
-                          SizedBox(height: 120),
-                          Center(child: Text('No transfers yet')),
-                        ])
-                      : ListView.separated(
-                          itemCount: _transfers.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, i) => _tile(_transfers[i]),
-                        ),
-                ),
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(_error!, textAlign: TextAlign.center),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: _transfers.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('No transfers yet')),
+                      ],
+                    )
+                  : ListView.builder(
+                      itemCount: _transfers.length,
+                      itemBuilder: (context, i) =>
+                          TileCard(child: _tile(_transfers[i])),
+                    ),
+            ),
     );
   }
 
@@ -78,10 +81,13 @@ class _TransfersScreenState extends State<TransfersScreen> {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: theme.colorScheme.secondaryContainer,
-        child: Text('${t.quantity}',
-            style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSecondaryContainer)),
+        child: Text(
+          '${t.quantity}',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSecondaryContainer,
+          ),
+        ),
       ),
       title: Text([t.partName, t.partNo].whereType<String>().join(' • ')),
       subtitle: Text(

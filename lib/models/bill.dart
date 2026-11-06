@@ -66,9 +66,14 @@ class CartLine {
   final Part part;
   int quantity;
 
-  CartLine(this.part, [this.quantity = 1]);
+  /// Price on this bill; starts at the part's sell price and can be changed.
+  double unitPrice;
 
-  double get lineTotal => roundMoney(part.sellPrice * quantity);
+  CartLine(this.part, [this.quantity = 1]) : unitPrice = part.sellPrice;
+
+  bool get priceChanged => unitPrice != part.sellPrice;
+
+  double get lineTotal => roundMoney(unitPrice * quantity);
 }
 
 double roundMoney(double v) => (v * 100).roundToDouble() / 100;

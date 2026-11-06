@@ -114,6 +114,18 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
+  test('part price on a bill starts at the sell price and can be changed', () {
+    final line = CartLine(const Part(id: 'a', name: 'Chain kit', sellPrice: 3200), 2);
+    expect(line.unitPrice, 3200);
+    expect(line.priceChanged, isFalse);
+    expect(line.lineTotal, 6400);
+
+    line.unitPrice = 2950;
+    expect(line.priceChanged, isTrue);
+    expect(line.lineTotal, 5900);
+    expect(cartSubtotal([line]), 5900);
+  });
+
   test('service lines add to the subtotal without a part', () {
     final services = [
       ServiceLine(serviceId: 's1', name: 'Full service', price: 2500),

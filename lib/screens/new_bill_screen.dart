@@ -348,52 +348,13 @@ class _NewBillScreenState extends State<NewBillScreen> {
     );
   }
 
-  Widget _lineTile(CartLine line) {
-    final available = _available(line.part);
-    return Card.outlined(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(line.part.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                    '${line.part.partNo == null ? '' : '${line.part.partNo} • '}'
-                    '${formatMoney(line.part.sellPrice)} each • $available in stock',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(formatMoney(line.lineTotal),
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-            IconButton(
-              tooltip: 'One less',
-              icon: Icon(line.quantity == 1
-                  ? Icons.delete_outline
-                  : Icons.remove_circle_outline),
-              onPressed: () => _changeQty(line, -1),
-            ),
-            Text('${line.quantity}',
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.bold)),
-            IconButton(
-              tooltip: 'One more',
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed:
-                  line.quantity < available ? () => _changeQty(line, 1) : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _lineTile(CartLine line) => _PartLineCard(
+        key: ObjectKey(line),
+        line: line,
+        available: _available(line.part),
+        onChangeQty: (delta) => _changeQty(line, delta),
+        onPriceChanged: () => setState(() {}),
+      );
 
   Widget _totalsBar(ThemeData theme) {
     Widget row(String label, String value, {bool bold = false}) => Row(
@@ -408,7 +369,10 @@ class _NewBillScreenState extends State<NewBillScreen> {
         );
     return Material(
       elevation: 8,
-      color: theme.colorScheme.surfaceContainer,
+      color: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -454,6 +418,140 @@ class _NewBillScreenState extends State<NewBillScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One part on the bill: quantity buttons and a price that starts at the
+/// part's sell price and can be changed for this bill.
+class _PartLineCard extends StatefulWidget {
+  const _PartLineCard({
+    super.key,
+    required this.line,
+    required this.available,
+    required this.onChangeQty,
+    required this.onPriceChanged,
+  });
+
+  final CartLine line;
+  final int available;
+  final ValueChanged<int> onChangeQty;
+  final VoidCallback onPriceChanged;
+
+  @override
+  State<_PartLineCard> createState() => _PartLineCardState();
+}
+
+class _PartLineCardState extends State<_PartLineCard> {
+  late final _price =
+      TextEditingController(text: widget.line.unitPrice.toStringAsFixed(2));
+
+  @override
+  void dispose() {
+    _price.dispose();
+    super.dispose();
+  }
+
+  void _resetPrice() {
+    final line = widget.line;
+    line.unitPrice = line.part.sellPrice;
+    _price.text = line.unitPrice.toStringAsFixed(2);
+    widget.onPriceChanged();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final line = widget.line;
+    return Card.outlined(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(line.part.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        '${line.part.partNo == null ? '' : '${line.part.partNo} • '}'
+                        '${widget.available} in stock',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'One less',
+                  icon: Icon(line.quantity == 1
+                      ? Icons.delete_outline
+                      : Icons.remove_circle_outline),
+                  onPressed: () => widget.onChangeQty(-1),
+                ),
+                Text('${line.quantity}',
+                    style: const TextStyle(
+                        fontSize: 16, fontWeight: FontWeight.bold)),
+                IconButton(
+                  tooltip: 'One more',
+                  icon: const Icon(Icons.add_circle_outline),
+                  onPressed: line.quantity < widget.available
+                      ? () => widget.onChangeQty(1)
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _price,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d{0,2}')),
+                      ],
+                      decoration: InputDecoration(
+                        labelText: 'Price each ($currencySymbol)',
+                        isDense: true,
+                        helperText: line.priceChanged
+                            ? 'Normal price ${formatMoney(line.part.sellPrice)}'
+                            : null,
+                        suffixIcon: line.priceChanged
+                            ? IconButton(
+                                tooltip: 'Use normal price',
+                                icon: const Icon(Icons.restart_alt),
+                                onPressed: _resetPrice,
+                              )
+                            : null,
+                      ),
+                      onChanged: (v) {
+                        line.unitPrice = roundMoney(double.tryParse(v) ?? 0);
+                        widget.onPriceChanged();
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(formatMoney(line.lineTotal),
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
