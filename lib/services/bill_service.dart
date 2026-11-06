@@ -9,8 +9,9 @@ class BillService {
   final SupabaseClient _db;
 
   /// Saves a bill, takes the parts' stock off [branchId] and returns the new
-  /// bill id. Part prices and all totals are calculated by the database;
-  /// service charges are taken as entered. [amountPaid] null means the full
+  /// bill id. Part and service prices are taken as entered on the bill (part
+  /// prices start at the sell price); totals are calculated by the database.
+  /// [amountPaid] null means the full
   /// total; [PaymentMethod.credit] means nothing paid now.
   Future<String> createBill({
     required String branchId,
@@ -28,7 +29,12 @@ class BillService {
           'p_branch_id': branchId,
           'p_items': [
             for (final l in lines)
-              {'type': 'part', 'part_id': l.part.id, 'quantity': l.quantity},
+              {
+                'type': 'part',
+                'part_id': l.part.id,
+                'quantity': l.quantity,
+                'price': l.unitPrice,
+              },
             for (final s in services)
               {
                 'type': 'service',
