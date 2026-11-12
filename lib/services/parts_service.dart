@@ -42,7 +42,7 @@ class PartsService {
     // Strip characters that have meaning in PostgREST filter syntax.
     final q = search.replaceAll(RegExp(r'[,()%*]'), ' ').trim();
     if (q.isNotEmpty) {
-      query = query.or('name.ilike.%$q%,part_no.ilike.%$q%');
+      query = query.or('name.ilike.%$q%,part_no.ilike.%$q%,barcode.ilike.%$q%');
     }
     if (categoryId != null) query = query.eq('category_id', categoryId);
     if (brandId != null) query = query.eq('brand_id', brandId);
@@ -57,6 +57,18 @@ class PartsService {
     return Part.fromJson(row);
   }
 
+  /// The part with this scanned barcode, or null if no part has it.
+  Future<Part?> findByBarcode(String code) async {
+    final c = code.trim();
+    if (c.isEmpty) return null;
+    final row = await _db
+        .from('parts')
+        .select(Part.selectColumns)
+        .eq('barcode', c)
+        .maybeSingle();
+    return row == null ? null : Part.fromJson(row);
+  }
+
   /// Inserts or updates [part], sets [stock] (branch id -> quantity) for the
   /// given branches, removes [removedImages] and uploads [newImages].
   /// Returns the part's id.
@@ -67,13 +79,21 @@ class PartsService {
     List<NewImage> newImages = const [],
   }) async {
     final String partId;
-    if (part.id == null) {
-      final row =
-          await _db.from('parts').insert(part.toRow()).select('id').single();
-      partId = row['id'] as String;
-    } else {
-      partId = part.id!;
-      await _db.from('parts').update(part.toRow()).eq('id', partId);
+    try {
+      if (part.id == null) {
+        final row =
+            await _db.from('parts').insert(part.toRow()).select('id').single();
+        partId = row['id'] as String;
+      } else {
+        partId = part.id!;
+        await _db.from('parts').update(part.toRow()).eq('id', partId);
+      }
+    } on PostgrestException catch (e) {
+      // The only unique rule on parts is the barcode.
+      if (e.code == '23505') {
+        throw Exception('This barcode is already used by another part');
+      }
+      rethrow;
     }
 
     if (stock.isNotEmpty) {

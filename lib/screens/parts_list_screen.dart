@@ -12,6 +12,7 @@ import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
 import '../theme.dart';
 import '../utils/money.dart';
+import '../widgets/barcode_scanner.dart';
 import '../widgets/transfer_sheet.dart';
 import 'manage_lookups_screen.dart';
 import 'part_form_screen.dart';
@@ -286,6 +287,31 @@ class _PartsListScreenState extends State<PartsListScreen> {
   void _onSearchChanged(String _) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 400), _load);
+  }
+
+  /// Scan a code from the search box: opens the matching part, or searches
+  /// for the code when no part has it.
+  Future<void> _scanSearch() async {
+    final code = await scanCode(context, title: 'Find a part');
+    if (code == null || !mounted) return;
+    Part? part;
+    try {
+      part = await _service.findByBarcode(code);
+    } catch (_) {
+      // Fall back to a text search below.
+    }
+    if (!mounted) return;
+    if (part != null) {
+      await _openForm(part);
+      return;
+    }
+    _searchController.text = code;
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('No part has the code $code yet. Open a part and '
+              'scan it into Barcode / QR to link it.')));
+    }
   }
 
   Future<void> _openForm([Part? part]) async {
@@ -612,9 +638,13 @@ class _PartsListScreenState extends State<PartsListScreen> {
             onChanged: _onSearchChanged,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search, color: Brand.blue),
-              hintText: 'Search name or part no',
+              hintText: 'Search name, part no or code',
               suffixIcon: _searchController.text.isEmpty
-                  ? null
+                  ? IconButton(
+                      tooltip: 'Scan barcode / QR',
+                      icon: const Icon(Icons.qr_code_scanner, color: Brand.blue),
+                      onPressed: _scanSearch,
+                    )
                   : IconButton(
                       tooltip: 'Clear',
                       icon: const Icon(Icons.close),

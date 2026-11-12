@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/part.dart';
 import '../services/parts_service.dart';
 import '../utils/money.dart';
+import 'barcode_scanner.dart';
 
 /// Bottom sheet to search and pick a part. Shows stock at [branchId].
 /// With [requireStock], parts with no stock there cannot be picked (billing).
@@ -60,6 +61,26 @@ class _PartPickerState extends State<_PartPicker> {
     super.dispose();
   }
 
+  /// Scan a code: picks the matching part straight away when it can be
+  /// picked, otherwise shows the code as the search.
+  Future<void> _scan() async {
+    final code = await scanCode(context, title: 'Scan a part');
+    if (code == null || !mounted) return;
+    try {
+      final part = await _service.findByBarcode(code);
+      if (!mounted) return;
+      if (part != null &&
+          (!widget.requireStock || part.quantityAt(widget.branchId) > 0)) {
+        Navigator.pop(context, part);
+        return;
+      }
+    } catch (_) {
+      // Fall back to searching for the code below.
+    }
+    _search.text = code;
+    _load();
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
@@ -91,10 +112,15 @@ class _PartPickerState extends State<_PartPicker> {
               child: TextField(
                 controller: _search,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Search name or part no',
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Search name, part no or code',
                   isDense: true,
+                  suffixIcon: IconButton(
+                    tooltip: 'Scan barcode / QR',
+                    icon: const Icon(Icons.qr_code_scanner),
+                    onPressed: _scan,
+                  ),
                 ),
                 onChanged: (_) {
                   _debounce?.cancel();

@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 
 import '../models/bill.dart';
 import '../models/branch.dart';
+import '../models/part.dart';
 import '../models/purchase.dart';
 import '../services/parts_service.dart';
 import '../services/purchase_service.dart';
 import '../utils/money.dart';
+import '../widgets/barcode_scanner.dart';
 import '../widgets/part_picker.dart';
 import 'part_form_screen.dart';
 import 'purchase_detail_screen.dart';
@@ -29,6 +31,8 @@ class _StockInScreenState extends State<StockInScreen> {
   final _service = PurchaseService();
   final _partsService = PartsService();
   final _lines = <PurchaseLine>[];
+  // Bumped when a scan changes a line's quantity, to refresh its card.
+  final _lineVersions = <PurchaseLine, int>{};
   final _invoiceNo = TextEditingController();
   final _discount = TextEditingController();
   final _amountPaid = TextEditingController();
@@ -165,12 +169,61 @@ class _StockInScreenState extends State<StockInScreen> {
     setState(() => _lines.add(PurchaseLine(part)));
   }
 
-  Future<void> _addNewPart() async {
+  /// Scan a part's code: adds the part (or one more of it), or offers to
+  /// create a new part with that code.
+  Future<void> _scanPart() async {
+    final code = await scanCode(context, title: 'Scan a part');
+    if (code == null || !mounted) return;
+    final Part? part;
+    try {
+      part = await _partsService.findByBarcode(code);
+    } catch (e) {
+      _snack('Could not look up the code: $e');
+      return;
+    }
+    if (!mounted) return;
+    if (part != null) {
+      final existing = _lines.where((l) => l.part.id == part!.id).firstOrNull;
+      setState(() {
+        if (existing == null) {
+          _lines.add(PurchaseLine(part!));
+        } else {
+          existing.quantity++;
+          // Rebuild that line's card so its quantity field shows the new value.
+          _lineVersions[existing] = (_lineVersions[existing] ?? 0) + 1;
+        }
+      });
+      _snack(existing == null
+          ? 'Added ${part.name}'
+          : '${part.name}: quantity ${existing.quantity}');
+      return;
+    }
+    final create = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('New code'),
+        content: Text('No part has the code $code. '
+            'Create a new part with this code?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('New part')),
+        ],
+      ),
+    );
+    if (create == true) await _addNewPart(barcode: code);
+  }
+
+  Future<void> _addNewPart({String? barcode}) async {
     final id = await Navigator.of(context).push<String>(MaterialPageRoute(
       builder: (_) => PartFormScreen(
         branches: const [],
         isSuperAdmin: widget.isSuperAdmin,
         forStockIn: true,
+        initialBarcode: barcode,
       ),
     ));
     if (id == null) return;
@@ -333,12 +386,18 @@ class _StockInScreenState extends State<StockInScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: _scanPart,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan part barcode / QR'),
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                       child: Text('Items', style: theme.textTheme.titleMedium)),
                   TextButton.icon(
-                    onPressed: _addNewPart,
+                    onPressed: () => _addNewPart(),
                     icon: const Icon(Icons.add_box_outlined),
                     label: const Text('New part'),
                   ),
@@ -364,7 +423,7 @@ class _StockInScreenState extends State<StockInScreen> {
                 ),
               for (final line in _lines)
                 _LineCard(
-                  key: ObjectKey(line),
+                  key: ValueKey((line, _lineVersions[line] ?? 0)),
                   line: line,
                   branchId: widget.branch.id,
                   onChanged: () => setState(() {}),
