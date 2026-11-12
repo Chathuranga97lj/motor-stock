@@ -7,6 +7,7 @@ import '../models/lookup.dart';
 import '../models/part.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
+import '../widgets/barcode_scanner.dart';
 import '../widgets/lookup_widgets.dart';
 import '../widgets/transfer_sheet.dart';
 
@@ -18,7 +19,11 @@ class PartFormScreen extends StatefulWidget {
     this.branchId,
     this.isSuperAdmin = false,
     this.forStockIn = false,
+    this.initialBarcode,
   });
+
+  /// Barcode to fill in for a new part (e.g. a code scanned that no part had).
+  final String? initialBarcode;
 
   /// Only a super admin can delete parts and transfer stock.
   final bool isSuperAdmin;
@@ -46,6 +51,8 @@ class _PartFormScreenState extends State<PartFormScreen> {
 
   late final _name = TextEditingController(text: widget.part?.name);
   late final _partNo = TextEditingController(text: widget.part?.partNo);
+  late final _barcode = TextEditingController(
+      text: widget.part?.barcode ?? widget.initialBarcode);
   late String? _categoryId = widget.part?.categoryId;
   late String? _brandId = widget.part?.brandId;
   late String? _modelId = widget.part?.bikeModelId;
@@ -82,7 +89,7 @@ class _PartFormScreenState extends State<PartFormScreen> {
   @override
   void dispose() {
     for (final c in [
-      _name, _partNo, _buyPrice, _sellPrice, _lowStock, //
+      _name, _partNo, _barcode, _buyPrice, _sellPrice, _lowStock, //
       ..._quantities.values,
     ]) {
       c.dispose();
@@ -179,6 +186,7 @@ class _PartFormScreenState extends State<PartFormScreen> {
       id: widget.part?.id,
       name: _name.text.trim(),
       partNo: opt(_partNo),
+      barcode: opt(_barcode),
       categoryId: _categoryId,
       brandId: _brandId,
       bikeModelId: _brandId == null ? null : _modelId,
@@ -284,6 +292,27 @@ class _PartFormScreenState extends State<PartFormScreen> {
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null),
               _field(_partNo, 'Part number'),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: TextFormField(
+                  controller: _barcode,
+                  decoration: InputDecoration(
+                    labelText: 'Barcode / QR',
+                    helperText: 'Scan the code on the packet so the part can '
+                        'be found by scanning',
+                    prefixIcon: const Icon(Icons.qr_code_2),
+                    suffixIcon: IconButton(
+                      tooltip: 'Scan',
+                      icon: const Icon(Icons.qr_code_scanner),
+                      onPressed: () async {
+                        final code = await scanCode(context,
+                            title: 'Scan the part\'s code');
+                        if (code != null) setState(() => _barcode.text = code);
+                      },
+                    ),
+                  ),
+                ),
+              ),
               LookupDropdown(
                 label: LookupKind.category.label,
                 items: _lookups.categories,

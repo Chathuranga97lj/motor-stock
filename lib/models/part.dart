@@ -23,6 +23,9 @@ class Part {
   final String? id;
   final String name;
   final String? partNo;
+
+  /// Barcode or QR code printed on the part's packet, for scanning.
+  final String? barcode;
   final String? categoryId;
   final String? brandId;
   final String? bikeModelId;
@@ -42,6 +45,7 @@ class Part {
     this.id,
     required this.name,
     this.partNo,
+    this.barcode,
     this.categoryId,
     this.brandId,
     this.bikeModelId,
@@ -62,6 +66,7 @@ class Part {
         id: id,
         name: name,
         partNo: partNo,
+        barcode: barcode,
         categoryId: categoryId,
         brandId: brandId,
         bikeModelId: bikeModelId,
@@ -98,6 +103,7 @@ class Part {
       id: json['id'] as String?,
       name: json['name'] as String,
       partNo: json['part_no'] as String?,
+      barcode: json['barcode'] as String?,
       categoryId: json['category_id'] as String?,
       brandId: json['brand_id'] as String?,
       bikeModelId: json['bike_model_id'] as String?,
@@ -123,6 +129,7 @@ class Part {
   Map<String, dynamic> toRow() => {
         'name': name,
         'part_no': partNo,
+        'barcode': barcode,
         'category_id': categoryId,
         'brand_id': brandId,
         'bike_model_id': bikeModelId,

@@ -5,7 +5,9 @@ import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/part.dart';
 import '../services/bill_service.dart';
+import '../services/parts_service.dart';
 import '../utils/money.dart';
+import '../widgets/barcode_scanner.dart';
 import '../widgets/part_picker.dart';
 import 'bill_detail_screen.dart';
 
@@ -22,6 +24,7 @@ class NewBillScreen extends StatefulWidget {
 
 class _NewBillScreenState extends State<NewBillScreen> {
   final _billService = BillService();
+  final _partsService = PartsService();
   final _lines = <CartLine>[];
   final _services = <ServiceLine>[];
   List<ServiceItem> _serviceCatalog = [];
@@ -94,14 +97,49 @@ class _NewBillScreenState extends State<NewBillScreen> {
     final part = await showPartPicker(context,
         branchId: widget.branch.id, requireStock: true);
     if (part == null) return;
-    setState(() {
-      final existing = _lines.where((l) => l.part.id == part.id).firstOrNull;
-      if (existing == null) {
-        _lines.add(CartLine(part));
-      } else if (existing.quantity < _available(existing.part)) {
-        existing.quantity++;
-      }
-    });
+    _addToBill(part);
+  }
+
+  /// Adds [part], or one more of it if it is already on the bill.
+  /// Returns false when there is no more stock to add.
+  bool _addToBill(Part part) {
+    final existing = _lines.where((l) => l.part.id == part.id).firstOrNull;
+    if (existing == null) {
+      if (_available(part) <= 0) return false;
+      setState(() => _lines.add(CartLine(part)));
+      return true;
+    }
+    if (existing.quantity >= _available(existing.part)) return false;
+    setState(() => existing.quantity++);
+    return true;
+  }
+
+  /// Scan a part's barcode / QR code and add it to the bill.
+  Future<void> _scanPart() async {
+    final code = await scanCode(context, title: 'Scan a part');
+    if (code == null || !mounted) return;
+    final Part? part;
+    try {
+      part = await _partsService.findByBarcode(code);
+    } catch (e) {
+      _snack('Could not look up the code: $e');
+      return;
+    }
+    if (!mounted) return;
+    if (part == null) {
+      _snack('No part has the code $code. Add the code to the part first '
+          '(open the part and fill in Barcode / QR).');
+    } else if (_addToBill(part)) {
+      _snack('Added ${part.name}');
+    } else {
+      _snack('${part.name}: no more in stock at this branch');
+    }
+  }
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Pick a service from the list (its standard price can be changed on the
@@ -213,6 +251,12 @@ class _NewBillScreenState extends State<NewBillScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
             children: [
+              FilledButton.icon(
+                onPressed: _scanPart,
+                icon: const Icon(Icons.qr_code_scanner),
+                label: const Text('Scan part barcode / QR'),
+              ),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(

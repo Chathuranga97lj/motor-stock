@@ -45,6 +45,13 @@ void main() {
     expect(part.toRow()['bike_model_id'], 'm1');
   });
 
+  test('Part keeps its barcode when read and written', () {
+    final part = Part.fromJson({'id': 'p3', 'name': 'Spark plug', 'barcode': '8901234567890'});
+    expect(part.barcode, '8901234567890');
+    expect(part.toRow()['barcode'], '8901234567890');
+    expect(part.withStock({'b': 4}).barcode, '8901234567890');
+  });
+
   test('Part.fromJson handles parts with no linked lists', () {
     final part = Part.fromJson({'id': 'p2', 'name': 'Oil', 'category': null});
     expect(part.categoryName, isNull);
