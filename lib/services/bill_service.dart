@@ -60,7 +60,9 @@ class BillService {
   Future<List<ServiceItem>> fetchServices({bool includeInactive = false}) async {
     var query = _db.from('services').select('id, name, default_price, active');
     if (!includeInactive) query = query.eq('active', true);
-    final rows = await query.order('sort_order').order('name');
+    final rows = await query
+        .order('sort_order', ascending: true)
+        .order('name', ascending: true);
     return rows.map(ServiceItem.fromJson).toList();
   }
 
@@ -105,7 +107,8 @@ class BillService {
       query = query.or(
           'customer_name.ilike.%$q%,customer_phone.ilike.%$q%,bike_no.ilike.%$q%');
     }
-    final rows = await query.order('created_at').limit(1000);
+    final rows =
+        await query.order('created_at', ascending: true).limit(1000);
     return rows.map(Bill.fromJson).toList();
   }
 

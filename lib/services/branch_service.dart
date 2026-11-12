@@ -18,7 +18,7 @@ class BranchService {
         .from('branches')
         .select('id, name, is_main, address, phone')
         .order('is_main', ascending: false)
-        .order('name');
+        .order('name', ascending: true);
     return rows.map(Branch.fromJson).toList();
   }
 

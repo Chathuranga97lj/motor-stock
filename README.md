@@ -23,6 +23,9 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    - [`supabase/006_bill_payments.sql`](supabase/006_bill_payments.sql) adds credit and part payments: **Amount paid now** on a bill, **Record payment** later, the **To collect** list, and Sales vs Collected totals. Existing bills are marked fully paid.
    - [`supabase/007_purchases.sql`](supabase/007_purchases.sql) adds suppliers and **Stock in**: supplier, invoice number and date, unit costs, paid now or later, **To pay suppliers**, and stock-in history.
    - [`supabase/008_bill_services.sql`](supabase/008_bill_services.sql) adds bike service charges to bills (parts only, service only, or both), the bike number, a **Services** list with standard charges, and the Parts vs Service split in bill history.
+   - [`supabase/009_bill_part_price.sql`](supabase/009_bill_part_price.sql) lets the price of a part be changed on a bill (it starts at the part's sell price).
+   - [`supabase/010_part_barcode.sql`](supabase/010_part_barcode.sql) adds a barcode / QR code to parts, one code per part, for scanning.
+   - [`supabase/011_import_parts.sql`](supabase/011_import_parts.sql) adds **⋮ → Import parts (Excel)** for the super admin: parts, prices and opening stock from an .xlsx or .csv file, with a preview before saving. A row with the same name and part no as a part already in the app updates that part instead of adding it again.
 3. **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**. Only you will be able to add staff accounts.
 4. **Deploy the `create-user` Edge Function** so the super admin can add logins from the app:
    1. Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
@@ -45,6 +48,7 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    | Credit / part-paid bills, record payments, To collect | ✅ any branch | ✅ own branch |
    | Stock in from suppliers, add a supplier | ✅ any branch | ✅ own branch |
    | Pay suppliers later, To pay, edit/delete suppliers, cancel stock-in | ✅ | ❌ |
+   | Import parts from Excel / CSV | ✅ | ❌ |
 
    Accounts without a role can sign in but see nothing. These rules are enforced in the database, not only in the app.
 5. **Project Settings → API Keys**: copy the project URL and the **publishable** key. Never put the `service_role` or secret key in the app.
@@ -98,6 +102,10 @@ lib/
   screens/part_form_screen.dart     add/edit part, stock per branch, up to 3 photos
   screens/transfers_screen.dart     transfer history
   screens/manage_lookups_screen.dart  categories, brands, models, branches
+  screens/import_parts_screen.dart  pick a sheet, preview every row, import
+  services/part_import.dart       read .xlsx / .csv, match columns, check rows
+  services/import_template.dart   write the Excel template (Parts, How to fill, Lists)
+  widgets/barcode_scanner.dart    full-screen barcode / QR scanner
 supabase/schema.sql                         base tables and storage
 supabase/002_categories_brands_models.sql   dropdown lists
 supabase/003_branches_stock_transfers.sql   branches, stock per branch, transfers
@@ -106,6 +114,9 @@ supabase/005_bills.sql                      bills, bill items, create_bill / can
 supabase/006_bill_payments.sql              payments, credit bills, add_bill_payment
 supabase/007_purchases.sql                  suppliers, stock-ins, supplier payments
 supabase/008_bill_services.sql              service charges on bills, services list
+supabase/009_bill_part_price.sql            editable part price on bills
+supabase/010_part_barcode.sql               barcode / QR code on parts
+supabase/011_import_parts.sql               import_parts: sheet import with preview
 supabase/functions/create-user/index.ts     Edge Function: create a login with a role
 ```
 

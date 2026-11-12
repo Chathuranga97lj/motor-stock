@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/part.dart';
+import 'part_import.dart';
 
 const maxImagesPerPart = 3;
 const _bucket = 'part-images';
@@ -47,8 +48,11 @@ class PartsService {
     if (categoryId != null) query = query.eq('category_id', categoryId);
     if (brandId != null) query = query.eq('brand_id', brandId);
     if (bikeModelId != null) query = query.eq('bike_model_id', bikeModelId);
-    final rows = await query.order('name');
-    return rows.map(Part.fromJson).toList();
+    // order() is Z→A unless ascending is set. The final sort ignores case,
+    // so "signal Bulb" sits next to "Signal Light".
+    final rows = await query.order('name', ascending: true);
+    return rows.map(Part.fromJson).toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
   Future<Part> fetchPart(String id) async {
@@ -128,6 +132,30 @@ class PartsService {
       });
     }
     return partId;
+  }
+
+  /// Sends checked sheet rows to the database. With [dryRun] nothing is
+  /// saved and the result says what would happen to each row.
+  Future<ImportResult> importParts(
+    List<Map<String, dynamic>> rows, {
+    required bool dryRun,
+    bool updateStock = false,
+  }) async {
+    try {
+      final result = await _db.rpc('import_parts', params: {
+        'p_rows': rows,
+        'p_dry_run': dryRun,
+        'p_update_stock': updateStock,
+      });
+      return ImportResult.fromJson(Map<String, dynamic>.from(result as Map));
+    } on PostgrestException catch (e) {
+      // PGRST202: the function is not in the database yet.
+      if (e.code == 'PGRST202') {
+        throw Exception('Import is not set up in the database yet. Run '
+            'supabase/011_import_parts.sql in the Supabase SQL Editor.');
+      }
+      throw Exception(e.message);
+    }
   }
 
   Future<void> deletePart(Part part) async {

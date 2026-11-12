@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../utils/money.dart';
 import '../widgets/barcode_scanner.dart';
 import '../widgets/transfer_sheet.dart';
+import 'import_parts_screen.dart';
 import 'manage_lookups_screen.dart';
 import 'part_form_screen.dart';
 import 'transfers_screen.dart';
@@ -249,6 +250,19 @@ class _PartsListScreenState extends State<PartsListScreen> {
     _load();
   }
 
+  Future<void> _openImport() async {
+    final imported = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) =>
+            ImportPartsScreen(branches: _branches, branchId: _branchId),
+      ),
+    );
+    if (imported == true) {
+      await _loadLookups();
+      _load();
+    }
+  }
+
   Future<void> _openManageLists() async {
     await Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const ManageLookupsScreen()));
@@ -380,6 +394,13 @@ class _PartsListScreenState extends State<PartsListScreen> {
                   child: const ListTile(
                     leading: Icon(Icons.list_alt),
                     title: Text('Lists & branches'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _openImport,
+                  child: const ListTile(
+                    leading: Icon(Icons.upload_file),
+                    title: Text('Import parts (Excel)'),
                   ),
                 ),
                 PopupMenuItem(
