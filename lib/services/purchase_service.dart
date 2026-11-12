@@ -16,8 +16,9 @@ class PurchaseService {
     final rows = await _db
         .from('suppliers')
         .select('id, name, phone, address, note')
-        .order('name');
-    return rows.map(Supplier.fromJson).toList();
+        .order('name', ascending: true);
+    return rows.map(Supplier.fromJson).toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
   Future<Supplier> addSupplier({
@@ -153,7 +154,7 @@ class PurchaseService {
         .select(Purchase.listColumns)
         .eq('status', 'completed')
         .neq('payment_status', 'paid')
-        .order('created_at')
+        .order('created_at', ascending: true)
         .limit(1000);
     return rows.map(Purchase.fromJson).toList();
   }

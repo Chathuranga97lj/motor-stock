@@ -13,9 +13,19 @@ class LookupService {
 
   Future<Lookups> fetchAll() async {
     final results = await Future.wait([
-      _db.from(LookupKind.category.table).select('id, name').order('name'),
-      _db.from(LookupKind.brand.table).select('id, name').order('name'),
-      _db.from(LookupKind.model.table).select('id, name, brand_id').order('name'),
+      // Names are stored upper-case, so the database order is A→Z as shown.
+      _db
+          .from(LookupKind.category.table)
+          .select('id, name')
+          .order('name', ascending: true),
+      _db
+          .from(LookupKind.brand.table)
+          .select('id, name')
+          .order('name', ascending: true),
+      _db
+          .from(LookupKind.model.table)
+          .select('id, name, brand_id')
+          .order('name', ascending: true),
     ]);
     List<LookupItem> parse(List<Map<String, dynamic>> rows) =>
         rows.map(LookupItem.fromJson).toList();
