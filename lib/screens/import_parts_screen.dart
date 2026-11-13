@@ -497,51 +497,38 @@ class _ImportPartsScreenState extends State<ImportPartsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
         child: Column(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: StatBox(
-                    label: 'New parts',
-                    value: '${check.created}',
-                    color: Brand.green,
-                    icon: Icons.add_circle_outline,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatBox(
-                    label: 'Update',
-                    value: '${check.updated}',
-                    note: 'already in the app',
-                    color: Brand.blue,
-                    icon: Icons.sync,
-                  ),
-                ),
-              ],
+            _statRow(
+              StatBox(
+                label: 'New parts',
+                value: '${check.created}',
+                note: 'added with stock',
+                color: Brand.green,
+                icon: Icons.add_circle_outline,
+              ),
+              StatBox(
+                label: 'Update',
+                value: '${check.updated}',
+                note: 'already in the app',
+                color: Brand.blue,
+                icon: Icons.sync,
+              ),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: StatBox(
-                    label: 'Skipped',
-                    value: '$_skipCount',
-                    note: 'have a problem',
-                    color: Brand.red,
-                    icon: Icons.block,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatBox(
-                    label: 'Check',
-                    value: '${_count(_Filter.check)}',
-                    note: 'imported, take a look',
-                    color: _orange,
-                    icon: Icons.warning_amber_rounded,
-                  ),
-                ),
-              ],
+            _statRow(
+              StatBox(
+                label: 'Skipped',
+                value: '$_skipCount',
+                note: 'have a problem',
+                color: Brand.red,
+                icon: Icons.block,
+              ),
+              StatBox(
+                label: 'Check',
+                value: '${_count(_Filter.check)}',
+                note: 'imported, take a look',
+                color: _orange,
+                icon: Icons.warning_amber_rounded,
+              ),
             ),
           ],
         ),
@@ -623,6 +610,19 @@ class _ImportPartsScreenState extends State<ImportPartsScreen> {
       ],
     );
   }
+
+  /// Two boxes side by side, always the same height (even when one note
+  /// wraps to two lines on a narrow phone).
+  Widget _statRow(Widget left, Widget right) => IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: left),
+            const SizedBox(width: 10),
+            Expanded(child: right),
+          ],
+        ),
+      );
 
   Widget _columnChip(String field, String header) {
     final same = field.toLowerCase() == header.toLowerCase();
