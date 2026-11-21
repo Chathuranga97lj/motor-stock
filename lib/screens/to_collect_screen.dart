@@ -164,7 +164,7 @@ class _ToCollectScreenState extends State<ToCollectScreen> {
                   b.billNo,
                   days == 0 ? 'today' : '$days day${days == 1 ? '' : 's'} ago',
                   if (b.paymentStatus == PaymentStatus.partial)
-                    'paid ${formatMoney(b.amountPaid)} of ${formatMoney(b.total)}',
+                    'paid ${formatMoney(b.amountPaid)} of ${formatMoney(b.netTotal)}',
                 ].join(' • '),
               ),
               isThreeLine: b.paymentStatus == PaymentStatus.partial,

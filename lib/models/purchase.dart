@@ -1,5 +1,6 @@
 import 'bill.dart';
 import 'part.dart';
+import 'stock_return.dart';
 
 class Supplier {
   final String id;
@@ -41,23 +42,32 @@ double purchaseSubtotal(Iterable<PurchaseLine> lines) =>
     roundMoney(lines.fold(0.0, (sum, l) => sum + l.lineTotal));
 
 class PurchaseItem {
+  final String? id;
+  final String? partId;
   final String partName;
   final String? partNo;
   final int quantity;
+  final int returnedQty;
   final double unitCost;
   final double lineTotal;
 
   const PurchaseItem({
+    this.id,
+    this.partId,
     required this.partName,
     this.partNo,
     required this.quantity,
+    this.returnedQty = 0,
     required this.unitCost,
     required this.lineTotal,
   });
 
   factory PurchaseItem.fromJson(Map<String, dynamic> json) => PurchaseItem(
+        id: json['id'] as String?,
+        partId: json['part_id'] as String?,
         partName: json['part_name'] as String,
         partNo: json['part_no'] as String?,
+        returnedQty: (json['returned_qty'] as num?)?.toInt() ?? 0,
         quantity: (json['quantity'] as num).toInt(),
         unitCost: (json['unit_cost'] as num).toDouble(),
         lineTotal: (json['line_total'] as num).toDouble(),
@@ -89,6 +99,10 @@ class Purchase {
   final List<PurchaseItem> items;
   final List<BillPayment> payments;
 
+  /// Value of parts sent back so far (after their share of the discount).
+  final double returnedTotal;
+  final List<StockReturn> returns;
+
   const Purchase({
     required this.id,
     required this.purchaseNo,
@@ -112,19 +126,45 @@ class Purchase {
     required this.createdAt,
     this.items = const [],
     this.payments = const [],
+    this.returnedTotal = 0,
+    this.returns = const [],
   });
 
   static const listColumns = 'id, purchase_no, branch_id, supplier_id, '
-      'invoice_no, invoice_date, note, subtotal, discount, total, '
+      'invoice_no, invoice_date, note, subtotal, discount, total, returned_total, '
       'payment_method, amount_paid, payment_status, status, cancel_reason, '
       'created_by_email, created_at, '
       'branch:branch_id(name), supplier:supplier_id(name, phone)';
 
-  static const detailColumns = '$listColumns, '
-      'purchase_items(part_name, part_no, quantity, unit_cost, line_total, sort_order), '
-      'purchase_payments(amount, method, note, created_by_email, created_at)';
+  static final detailColumns = '$listColumns, '
+      'purchase_items(id, part_id, part_name, part_no, quantity, returned_qty, '
+      'unit_cost, line_total, sort_order), '
+      'purchase_payments(amount, method, note, created_by_email, created_at), '
+      '${StockReturn.embedded(ReturnKind.supplier)}';
 
-  double get balance => roundMoney(total - amountPaid);
+  /// Total after returns.
+  double get netTotal => roundMoney(total - returnedTotal);
+
+  bool get hasReturns => returnedTotal > 0 || returns.isNotEmpty;
+
+  List<ReturnableLine> get returnableLines => [
+        for (final i in items)
+          if (i.id != null)
+            ReturnableLine(
+              itemId: i.id!,
+              name: i.partName,
+              partNo: i.partNo,
+              quantity: i.quantity,
+              returnedQty: i.returnedQty,
+              unitPrice: i.unitCost,
+              partGone: i.partId == null,
+            ),
+      ];
+
+  bool get canReturn =>
+      !cancelled && returnableLines.any((l) => l.returnable > 0);
+
+  double get balance => roundMoney(total - returnedTotal - amountPaid);
 
   /// Money still owed to the supplier (0 for cancelled stock-ins).
   bool get hasBalance => !cancelled && balance > 0;
@@ -168,6 +208,8 @@ class Purchase {
           .map(BillPayment.fromJson)
           .toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+      returnedTotal: (json['returned_total'] as num?)?.toDouble() ?? 0,
+      returns: StockReturn.listFrom(json['purchase_returns'], ReturnKind.supplier),
     );
   }
 }

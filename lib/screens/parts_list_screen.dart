@@ -23,6 +23,7 @@ import 'bills_screen.dart';
 import 'new_bill_screen.dart';
 import 'to_collect_screen.dart';
 import 'purchases_screen.dart';
+import 'returns_screen.dart';
 import 'stock_in_screen.dart';
 import 'to_pay_screen.dart';
 
@@ -170,6 +171,18 @@ class _PartsListScreenState extends State<PartsListScreen> {
       MaterialPageRoute(
         builder: (_) =>
             PurchasesScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
+      ),
+    );
+    _load();
+  }
+
+  // Returns change stock, so the list reloads afterwards.
+  Future<void> _openReturns() async {
+    if (_branch == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            ReturnsScreen(branch: _branch!, isSuperAdmin: _isSuperAdmin),
       ),
     );
     _load();
@@ -430,6 +443,13 @@ class _PartsListScreenState extends State<PartsListScreen> {
                 child: const ListTile(
                   leading: Icon(Icons.inventory_2_outlined),
                   title: Text('Stock-in history'),
+                ),
+              ),
+              PopupMenuItem(
+                value: _openReturns,
+                child: const ListTile(
+                  leading: Icon(Icons.assignment_return_outlined),
+                  title: Text('Returns'),
                 ),
               ),
               PopupMenuItem(

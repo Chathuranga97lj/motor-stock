@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../models/purchase.dart';
+import '../models/stock_return.dart';
 import '../services/purchase_service.dart';
 import '../theme.dart';
 import '../utils/money.dart';
 import '../widgets/payment_widgets.dart';
+import '../widgets/returns_section.dart';
+import 'return_screen.dart';
 
 /// One stock-in, with Record payment and Cancel for the super admin.
 class PurchaseDetailScreen extends StatefulWidget {
@@ -92,6 +95,33 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
     }, 'Could not record payment');
   }
 
+  Future<void> _returnItems() async {
+    final p = _purchase!;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ReturnScreen(
+          kind: ReturnKind.supplier,
+          docId: p.id,
+          docNo: p.purchaseNo,
+          otherParty: p.supplierName,
+          lines: p.returnableLines,
+          subtotal: p.subtotal,
+          discount: p.discount,
+          total: p.total,
+          returnedTotal: p.returnedTotal,
+          amountPaid: p.amountPaid,
+        ),
+      ),
+    );
+    if (saved != true) return;
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Return saved. Stock has been updated.')),
+      );
+    }
+  }
+
   Future<void> _cancel() async {
     final p = _purchase!;
     final reason = TextEditingController();
@@ -103,9 +133,12 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'The stock is taken back out. This only works if the '
-              'items are still in stock (not sold or moved).',
+            Text(
+              p.hasReturns
+                  ? 'The stock not already returned is taken back out. This '
+                      'only works if the items are still in stock.'
+                  : 'The stock is taken back out. This only works if the '
+                      'items are still in stock (not sold or moved).',
             ),
             if (p.amountPaid > 0) ...[
               const SizedBox(height: 12),
@@ -317,6 +350,13 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
         SectionCard(
           title: 'Items',
           icon: Icons.inventory_2_outlined,
+          trailing: p.canReturn
+              ? TextButton.icon(
+                  onPressed: _busy ? null : _returnItems,
+                  icon: const Icon(Icons.assignment_return_outlined, size: 18),
+                  label: const Text('Return'),
+                )
+              : null,
           child: Column(
             children: [
               for (final item in p.items)
@@ -326,7 +366,8 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                   title: Text(item.partName),
                   subtitle: Text(
                     '${item.partNo == null ? '' : '${item.partNo} • '}'
-                    '${item.quantity} × ${formatMoney(item.unitCost)}',
+                    '${item.quantity} × ${formatMoney(item.unitCost)}'
+                    '${item.returnedQty > 0 ? ' • ${item.returnedQty} returned' : ''}',
                   ),
                   trailing: Text(
                     formatMoney(item.lineTotal),
@@ -358,7 +399,16 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
                   decoration: p.cancelled ? TextDecoration.lineThrough : null,
                 ),
               ),
-              row('Paid', formatMoney(p.amountPaid)),
+              if (p.hasReturns) ...[
+                row('Returned', '- ${formatMoney(p.returnedTotal)}'),
+                row(
+                  'Total after returns',
+                  formatMoney(p.netTotal),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ],
+              row(p.hasReturns ? 'Paid (after refunds)' : 'Paid',
+                  formatMoney(p.amountPaid)),
               if (p.hasBalance)
                 row(
                   'Still to pay',
@@ -413,6 +463,7 @@ class _PurchaseDetailScreenState extends State<PurchaseDetailScreen> {
             ],
           ),
         ),
+        ReturnsSection(returns: p.returns),
       ],
     );
   }
