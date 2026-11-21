@@ -6,6 +6,7 @@ import '../models/stock_return.dart';
 import '../services/return_service.dart';
 import '../theme.dart';
 import '../utils/errors.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import '../utils/period.dart';
 import '../widgets/returns_section.dart';
@@ -34,6 +35,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
   List<StockReturn> _returns = [];
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
       final list = await _service.fetchReturns(
@@ -49,18 +52,20 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
         branchId: widget.branch.id,
         from: _period.from,
       );
-      if (mounted) {
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _returns = list;
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && _latest.isLatest(request)) {
         setState(() => _error = errorMessage(e));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 

@@ -144,6 +144,7 @@ class _StockInScreenState extends State<StockInScreen> {
     try {
       final s = await _service.addSupplier(name: values.$1, phone: values.$2);
       await _loadSuppliers();
+      if (!mounted) return;
       setState(() => _supplierId = s.id);
     } catch (e) {
       _snack(errorMessage(e));
@@ -228,6 +229,7 @@ class _StockInScreenState extends State<StockInScreen> {
     if (id == null) return;
     try {
       final part = await _partsService.fetchPart(id);
+      if (!mounted) return;
       setState(() => _lines.add(PurchaseLine(part)));
     } catch (e) {
       _snack('Part saved, but could not add it here: $e');

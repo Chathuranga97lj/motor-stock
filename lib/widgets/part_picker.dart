@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/part.dart';
 import '../services/parts_service.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import 'barcode_scanner.dart';
 
@@ -47,6 +48,7 @@ class _PartPickerState extends State<_PartPicker> {
   List<Part> _parts = [];
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -82,19 +84,24 @@ class _PartPickerState extends State<_PartPicker> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
       final parts = await _service.fetchParts(search: _search.text);
-      if (mounted) {
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _parts = parts;
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load parts: $e');
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = 'Could not load parts: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 

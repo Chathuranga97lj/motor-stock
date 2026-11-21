@@ -4,6 +4,7 @@ import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/purchase.dart';
 import '../services/purchase_service.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import '../theme.dart';
 import '../utils/period.dart';
@@ -34,6 +35,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   double _paid = 0;
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -48,6 +50,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
       final (purchases, paid) = await (
@@ -62,7 +65,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
           supplierId: _supplierId,
         ),
       ).wait;
-      if (mounted) {
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _purchases = purchases;
           _paid = paid;
@@ -70,9 +73,13 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load stock-ins: $e');
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = 'Could not load stock-ins: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 

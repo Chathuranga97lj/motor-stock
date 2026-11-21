@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/bill.dart';
 import '../models/branch.dart';
 import '../services/bill_service.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import '../theme.dart';
 import '../utils/period.dart';
@@ -32,6 +33,7 @@ class _BillsScreenState extends State<BillsScreen> {
   double _collected = 0;
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -40,13 +42,14 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
       final (bills, collected) = await (
         _service.fetchBills(branchId: widget.branch.id, from: _period.from),
         _service.fetchCollected(branchId: widget.branch.id, from: _period.from),
       ).wait;
-      if (mounted) {
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _bills = bills;
           _collected = collected;
@@ -54,9 +57,13 @@ class _BillsScreenState extends State<BillsScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load bills: $e');
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = 'Could not load bills: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/part.dart';
+import '../utils/paging.dart';
 import '../utils/text.dart';
 import 'part_import.dart';
 
@@ -40,18 +41,26 @@ class PartsService {
     String? brandId,
     String? bikeModelId,
   }) async {
-    var query = _db.from('parts').select(Part.selectColumns);
     // Strip characters that have meaning in PostgREST filter syntax.
     final q = cleanSearch(search);
-    if (q.isNotEmpty) {
-      query = query.or('name.ilike.%$q%,part_no.ilike.%$q%,barcode.ilike.%$q%');
-    }
-    if (categoryId != null) query = query.eq('category_id', categoryId);
-    if (brandId != null) query = query.eq('brand_id', brandId);
-    if (bikeModelId != null) query = query.eq('bike_model_id', bikeModelId);
-    // order() is Z→A unless ascending is set. The final sort ignores case,
-    // so "signal Bulb" sits next to "Signal Light".
-    final rows = await query.order('name', ascending: true);
+    // Read in pages: one request returns at most 1000 rows.
+    final rows = await fetchAllPages((from, to) {
+      var query = _db.from('parts').select(Part.selectColumns);
+      if (q.isNotEmpty) {
+        query =
+            query.or('name.ilike.%$q%,part_no.ilike.%$q%,barcode.ilike.%$q%');
+      }
+      if (categoryId != null) query = query.eq('category_id', categoryId);
+      if (brandId != null) query = query.eq('brand_id', brandId);
+      if (bikeModelId != null) query = query.eq('bike_model_id', bikeModelId);
+      // order() is Z→A unless ascending is set. id keeps pages stable when
+      // names repeat. The final sort ignores case, so "signal Bulb" sits next
+      // to "Signal Light".
+      return query
+          .order('name', ascending: true)
+          .order('id', ascending: true)
+          .range(from, to);
+    });
     return rows.map(Part.fromJson).toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
@@ -109,13 +118,12 @@ class PartsService {
     }
 
     if (removedImages.isNotEmpty) {
-      await _db.storage
-          .from(_bucket)
-          .remove(removedImages.map((i) => i.storagePath).toList());
+      // Rows first: if this fails the photos are still there to show.
       await _db
           .from('part_images')
           .delete()
           .inFilter('id', removedImages.map((i) => i.id).toList());
+      await _removeFiles(removedImages);
     }
 
     final keptCount = part.images.length - removedImages.length;
@@ -160,11 +168,22 @@ class PartsService {
   }
 
   Future<void> deletePart(Part part) async {
-    if (part.images.isNotEmpty) {
+    // The part first (its image rows go with it), then the files, so a
+    // failed delete never leaves a part without its photos.
+    await _db.from('parts').delete().eq('id', part.id!);
+    await _removeFiles(part.images);
+  }
+
+  /// Removes photo files whose rows are already deleted. A failure only
+  /// leaves an unused file in Storage, so it is not reported.
+  Future<void> _removeFiles(List<PartImage> images) async {
+    if (images.isEmpty) return;
+    try {
       await _db.storage
           .from(_bucket)
-          .remove(part.images.map((i) => i.storagePath).toList());
+          .remove(images.map((i) => i.storagePath).toList());
+    } catch (_) {
+      // Nothing points at the files any more.
     }
-    await _db.from('parts').delete().eq('id', part.id!);
   }
 }

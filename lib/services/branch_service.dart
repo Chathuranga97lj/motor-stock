@@ -54,12 +54,19 @@ class BranchService {
   }
 
   /// Adds [delta] (can be negative) at one branch. Never goes below 0.
-  Future<void> adjustStock(String partId, String branchId, int delta) =>
-      _guard(() => _db.rpc('adjust_stock', params: {
-            'p_part_id': partId,
-            'p_branch_id': branchId,
-            'p_delta': delta,
-          }));
+  /// Returns the new quantity there.
+  Future<int> adjustStock(String partId, String branchId, int delta) async {
+    int? quantity;
+    await _guard(() async {
+      final result = await _db.rpc('adjust_stock', params: {
+        'p_part_id': partId,
+        'p_branch_id': branchId,
+        'p_delta': delta,
+      });
+      quantity = (result as num).toInt();
+    });
+    return quantity!;
+  }
 
   Future<void> transfer({
     required String partId,

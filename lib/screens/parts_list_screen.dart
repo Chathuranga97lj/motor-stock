@@ -11,6 +11,7 @@ import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
 import '../theme.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import '../widgets/barcode_scanner.dart';
 import '../widgets/transfer_sheet.dart';
@@ -53,6 +54,7 @@ class _PartsListScreenState extends State<PartsListScreen> {
   bool _loading = true;
   bool _lowStockOnly = false;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -292,6 +294,7 @@ class _PartsListScreenState extends State<PartsListScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() {
       _loading = true;
       _error = null;
@@ -303,11 +306,16 @@ class _PartsListScreenState extends State<PartsListScreen> {
         brandId: _filters[LookupKind.brand],
         bikeModelId: _filters[LookupKind.model],
       );
-      if (mounted) setState(() => _parts = parts);
+      // A newer search or filter has started; its answer wins.
+      if (mounted && _latest.isLatest(request)) setState(() => _parts = parts);
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load stock: $e');
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = 'Could not load stock: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -359,8 +367,18 @@ class _PartsListScreenState extends State<PartsListScreen> {
     final branchId = _branchId;
     if (branchId == null) return;
     try {
-      await _branchService.adjustStock(part.id!, branchId, delta);
-      await _load();
+      final quantity =
+          await _branchService.adjustStock(part.id!, branchId, delta);
+      if (!mounted) return;
+      // Update just this part instead of downloading the whole list again.
+      setState(() {
+        _parts = [
+          for (final p in _parts)
+            p.id == part.id
+                ? p.withStock({...p.stock, branchId: quantity})
+                : p,
+        ];
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -937,6 +955,9 @@ class _PartCard extends StatelessWidget {
                     : Image.network(
                         imageUrl!,
                         fit: BoxFit.cover,
+                        // Decode at the shown size, not the full photo.
+                        cacheWidth:
+                            (70 * MediaQuery.devicePixelRatioOf(context)).round(),
                         errorBuilder: (_, _, _) =>
                             const Icon(Icons.broken_image),
                       ),
