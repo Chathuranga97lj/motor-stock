@@ -61,6 +61,10 @@ Future<Uint8List> buildBillPdf(Bill bill) async {
           pw.SizedBox(height: 14),
           _payments(bill, small),
         ],
+        if (bill.returns.isNotEmpty) ...[
+          pw.SizedBox(height: 10),
+          _returns(bill, small),
+        ],
       ],
     ),
   );
@@ -267,8 +271,13 @@ pw.Widget _totals(Bill bill, pw.TextStyle bold) {
         if (bill.discount > 0) row('Discount', '- ${formatMoney(bill.discount)}'),
         pw.Divider(color: _navy, thickness: 1),
         row('TOTAL', formatMoney(bill.total), strong: true),
+        if (!bill.cancelled && bill.hasReturns) ...[
+          row('Returned', '- ${formatMoney(bill.returnedTotal)}'),
+          row('Total after returns', formatMoney(bill.netTotal)),
+        ],
         if (!bill.cancelled) ...[
-          row('Paid', formatMoney(bill.amountPaid)),
+          row(bill.hasReturns ? 'Paid (after refunds)' : 'Paid',
+              formatMoney(bill.amountPaid)),
           if (bill.hasBalance)
             pw.Container(
               margin: const pw.EdgeInsets.only(top: 4),
@@ -308,6 +317,39 @@ pw.Widget _payments(Bill bill, pw.TextStyle small) {
           pw.Expanded(child: pw.Text(p.note ?? '', style: small)),
           pw.Text(formatMoney(p.amount), style: const pw.TextStyle(fontSize: 8)),
         ]),
+    ],
+  );
+}
+
+pw.Widget _returns(Bill bill, pw.TextStyle small) {
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      pw.Text('Returned items',
+          style: pw.TextStyle(
+              fontSize: 9, fontWeight: pw.FontWeight.bold, color: _red)),
+      pw.SizedBox(height: 2),
+      for (final r in bill.returns)
+        for (final (i, item) in r.items.indexed)
+          pw.Row(children: [
+            pw.SizedBox(
+                width: 90,
+                child: pw.Text(i == 0 ? formatDateTime(r.createdAt) : '',
+                    style: small)),
+            pw.Expanded(
+                child: pw.Text(
+                    '${item.quantity} x ${item.name}'
+                    '${i == 0 ? ' (${r.reason})' : ''}',
+                    style: small)),
+            pw.Text('- ${formatMoney(item.value)}',
+                style: const pw.TextStyle(fontSize: 8)),
+          ]),
+      for (final r in bill.returns.where((r) => r.refundAmount > 0))
+        pw.Text(
+          'Refunded ${formatMoney(r.refundAmount)} '
+          '(${r.refundMethod?.label ?? 'Cash'}) on ${formatDateTime(r.createdAt)}',
+          style: small,
+        ),
     ],
   );
 }

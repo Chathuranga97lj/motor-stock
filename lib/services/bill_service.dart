@@ -112,19 +112,35 @@ class BillService {
     return rows.map(Bill.fromJson).toList();
   }
 
-  /// Money received at [branchId] since [from] (all time if null),
-  /// on bills that are not cancelled.
+  /// Money received at [branchId] since [from] (all time if null), less
+  /// refunds given back for returns, on bills that are not cancelled.
   Future<double> fetchCollected({required String branchId, DateTime? from}) async {
     var query = _db
         .from('bill_payments')
         .select('amount, bills!inner(status)')
         .eq('branch_id', branchId)
         .eq('bills.status', 'completed');
+    var refunds = _db
+        .from('bill_returns')
+        .select('refund_amount, bills!inner(status)')
+        .eq('branch_id', branchId)
+        .eq('bills.status', 'completed')
+        .gt('refund_amount', 0);
     if (from != null) {
-      query = query.gte('created_at', from.toUtc().toIso8601String());
+      final since = from.toUtc().toIso8601String();
+      query = query.gte('created_at', since);
+      refunds = refunds.gte('created_at', since);
     }
     final rows = await query.limit(10000);
-    return roundMoney(rows.fold(0.0, (sum, r) => sum + (r['amount'] as num)));
+    final paid = rows.fold(0.0, (sum, r) => sum + (r['amount'] as num));
+    var refunded = 0.0;
+    try {
+      final r = await refunds.limit(10000);
+      refunded = r.fold(0.0, (sum, x) => sum + (x['refund_amount'] as num));
+    } on PostgrestException {
+      // Returns not set up yet (migration 012): no refunds to take off.
+    }
+    return roundMoney(paid - refunded);
   }
 
   Future<Bill> fetchBill(String id) async {

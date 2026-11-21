@@ -1,4 +1,5 @@
 import 'part.dart';
+import 'stock_return.dart';
 
 enum PaymentMethod {
   cash('cash', 'Cash', 'Cash'),
@@ -119,28 +120,37 @@ double servicesSubtotal(Iterable<ServiceLine> lines) =>
     roundMoney(lines.fold(0.0, (sum, l) => sum + l.lineTotal));
 
 class BillItem {
+  final String? id;
+  final String? partId;
   /// Part name, or the service description for service lines.
   final String partName;
   final String? partNo;
   final bool isService;
   final int quantity;
+  final int returnedQty;
   final double unitPrice;
   final double lineTotal;
 
   const BillItem({
+    this.id,
+    this.partId,
     required this.partName,
     this.partNo,
     this.isService = false,
     required this.quantity,
+    this.returnedQty = 0,
     required this.unitPrice,
     required this.lineTotal,
   });
 
   factory BillItem.fromJson(Map<String, dynamic> json) => BillItem(
+        id: json['id'] as String?,
+        partId: json['part_id'] as String?,
         partName: json['part_name'] as String,
         partNo: json['part_no'] as String?,
         isService: json['item_type'] == 'service',
         quantity: (json['quantity'] as num).toInt(),
+        returnedQty: (json['returned_qty'] as num?)?.toInt() ?? 0,
         unitPrice: (json['unit_price'] as num).toDouble(),
         lineTotal: (json['line_total'] as num).toDouble(),
       );
@@ -172,6 +182,10 @@ class Bill {
   final List<BillItem> items;
   final List<BillPayment> payments;
 
+  /// Value of parts returned so far (after their share of the discount).
+  final double returnedTotal;
+  final List<StockReturn> returns;
+
   const Bill({
     required this.id,
     required this.billNo,
@@ -196,25 +210,58 @@ class Bill {
     required this.createdAt,
     this.items = const [],
     this.payments = const [],
+    this.returnedTotal = 0,
+    this.returns = const [],
   });
 
   static const listColumns = 'id, bill_no, branch_id, customer_name, '
       'customer_phone, bike_no, subtotal, parts_total, services_total, '
-      'discount, total, payment_method, status, '
+      'discount, total, returned_total, payment_method, status, '
       'amount_paid, payment_status, '
       'cancel_reason, created_by_email, created_at, '
       'branch:branch_id(name, address, phone)';
 
-  static const detailColumns = '$listColumns, '
-      'bill_items(item_type, part_name, part_no, quantity, unit_price, line_total, sort_order), '
-      'bill_payments(amount, method, note, created_by_email, created_at)';
+  static final detailColumns = '$listColumns, '
+      'bill_items(id, part_id, item_type, part_name, part_no, quantity, '
+      'returned_qty, unit_price, line_total, sort_order), '
+      'bill_payments(amount, method, note, created_by_email, created_at), '
+      '${StockReturn.embedded(ReturnKind.customer)}';
 
   int get itemCount => items.fold(0, (sum, i) => sum + i.quantity);
 
   List<BillItem> get partItems => items.where((i) => !i.isService).toList();
   List<BillItem> get serviceItems => items.where((i) => i.isService).toList();
 
-  double get balance => roundMoney(total - amountPaid);
+  /// Total after returns.
+  double get netTotal => roundMoney(total - returnedTotal);
+
+  bool get hasReturns => returnedTotal > 0 || returns.isNotEmpty;
+
+  /// Every part came back and there were no services.
+  bool get fullyReturned =>
+      hasReturns &&
+      serviceItems.isEmpty &&
+      partItems.every((i) => i.returnedQty >= i.quantity);
+
+  /// Part lines, for the return screen.
+  List<ReturnableLine> get returnableLines => [
+        for (final i in partItems)
+          if (i.id != null)
+            ReturnableLine(
+              itemId: i.id!,
+              name: i.partName,
+              partNo: i.partNo,
+              quantity: i.quantity,
+              returnedQty: i.returnedQty,
+              unitPrice: i.unitPrice,
+              partGone: i.partId == null,
+            ),
+      ];
+
+  bool get canReturn =>
+      !cancelled && returnableLines.any((l) => l.returnable > 0);
+
+  double get balance => roundMoney(total - returnedTotal - amountPaid);
 
   /// Money still to be collected (0 for cancelled bills).
   bool get hasBalance => !cancelled && balance > 0;
@@ -260,6 +307,8 @@ class Bill {
           .map(BillPayment.fromJson)
           .toList()
         ..sort((a, b) => a.createdAt.compareTo(b.createdAt)),
+      returnedTotal: (json['returned_total'] as num?)?.toDouble() ?? 0,
+      returns: StockReturn.listFrom(json['bill_returns'], ReturnKind.customer),
     );
   }
 }

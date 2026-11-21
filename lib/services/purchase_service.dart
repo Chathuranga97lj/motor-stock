@@ -140,11 +140,31 @@ class PurchaseService {
     if (supplierId != null) {
       query = query.eq('purchases.supplier_id', supplierId);
     }
+    var refunds = _db
+        .from('purchase_returns')
+        .select('refund_amount, purchases!inner(status, supplier_id)')
+        .eq('branch_id', branchId)
+        .eq('purchases.status', 'completed')
+        .gt('refund_amount', 0);
+    if (supplierId != null) {
+      refunds = refunds.eq('purchases.supplier_id', supplierId);
+    }
     if (from != null) {
-      query = query.gte('created_at', from.toUtc().toIso8601String());
+      final since = from.toUtc().toIso8601String();
+      query = query.gte('created_at', since);
+      refunds = refunds.gte('created_at', since);
     }
     final rows = await query.limit(10000);
-    return roundMoney(rows.fold(0.0, (sum, r) => sum + (r['amount'] as num)));
+    final paid = rows.fold(0.0, (sum, r) => sum + (r['amount'] as num));
+    // Money suppliers gave back for returns comes off what was paid.
+    var refunded = 0.0;
+    try {
+      final r = await refunds.limit(10000);
+      refunded = r.fold(0.0, (sum, x) => sum + (x['refund_amount'] as num));
+    } on PostgrestException {
+      // Returns not set up yet (migration 012).
+    }
+    return roundMoney(paid - refunded);
   }
 
   /// All branches' stock-ins still owed to suppliers, oldest first.

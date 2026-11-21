@@ -26,6 +26,7 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    - [`supabase/009_bill_part_price.sql`](supabase/009_bill_part_price.sql) lets the price of a part be changed on a bill (it starts at the part's sell price).
    - [`supabase/010_part_barcode.sql`](supabase/010_part_barcode.sql) adds a barcode / QR code to parts, one code per part, for scanning.
    - [`supabase/011_import_parts.sql`](supabase/011_import_parts.sql) adds **⋮ → Import parts (Excel)** for the super admin: parts, prices and opening stock from an .xlsx or .csv file, with a preview before saving. A row with the same name and part no as a part already in the app updates that part instead of adding it again.
+   - [`supabase/012_returns.sql`](supabase/012_returns.sql) adds returns. **Customer returns** (bill → Parts → Return) put parts back into stock and either reduce what the customer owes or record a refund. **Supplier returns** (stock-in → Items → Return) take parts out of stock and either reduce what you owe or record the supplier's refund. A return is worth the lines' price less their share of the discount. History is under **⋮ → Returns**. Run this before installing a build that has returns: older databases lack the new columns, and the bill and stock-in lists will not load.
 3. **Authentication → Sign In / Providers**: turn off **Allow new users to sign up**. Only you will be able to add staff accounts.
 4. **Deploy the `create-user` Edge Function** so the super admin can add logins from the app:
    1. Dashboard → **Edge Functions** → **Deploy a new function** → **Via Editor**.
@@ -49,6 +50,7 @@ A Flutter app for managing stock in a motorbike parts shop. Staff sign in, then 
    | Stock in from suppliers, add a supplier | ✅ any branch | ✅ own branch |
    | Pay suppliers later, To pay, edit/delete suppliers, cancel stock-in | ✅ | ❌ |
    | Import parts from Excel / CSV | ✅ | ❌ |
+   | Customer and supplier returns, returns history | ✅ any branch | ✅ own branch |
 
    Accounts without a role can sign in but see nothing. These rules are enforced in the database, not only in the app.
 5. **Project Settings → API Keys**: copy the project URL and the **publishable** key. Never put the `service_role` or secret key in the app.
@@ -106,6 +108,11 @@ lib/
   services/part_import.dart       read .xlsx / .csv, match columns, check rows
   services/import_template.dart   write the Excel template (Parts, How to fill, Lists)
   widgets/barcode_scanner.dart    full-screen barcode / QR scanner
+  models/stock_return.dart        returns and the refund rules the screen shows
+  services/return_service.dart    save returns, returns history
+  screens/return_screen.dart      choose parts, reason and refund for a return
+  screens/returns_screen.dart     returns history (customers / suppliers)
+  widgets/returns_section.dart    "Returned" card on bills and stock-ins
 supabase/schema.sql                         base tables and storage
 supabase/002_categories_brands_models.sql   dropdown lists
 supabase/003_branches_stock_transfers.sql   branches, stock per branch, transfers
@@ -117,6 +124,7 @@ supabase/008_bill_services.sql              service charges on bills, services l
 supabase/009_bill_part_price.sql            editable part price on bills
 supabase/010_part_barcode.sql               barcode / QR code on parts
 supabase/011_import_parts.sql               import_parts: sheet import with preview
+supabase/012_returns.sql                    customer and supplier returns
 supabase/functions/create-user/index.ts     Edge Function: create a login with a role
 ```
 

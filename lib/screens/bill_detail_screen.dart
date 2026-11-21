@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../models/bill.dart';
+import '../models/stock_return.dart';
 import '../services/bill_pdf.dart';
 import '../services/bill_service.dart';
 import '../theme.dart';
 import '../utils/money.dart';
 import '../widgets/payment_widgets.dart';
+import '../widgets/returns_section.dart';
+import 'return_screen.dart';
 
 /// One saved bill, with Share, Print and (super admin) Cancel.
 class BillDetailScreen extends StatefulWidget {
@@ -93,6 +96,34 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
     }, 'Could not record payment');
   }
 
+  Future<void> _returnItems() async {
+    final bill = _bill!;
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ReturnScreen(
+          kind: ReturnKind.customer,
+          docId: bill.id,
+          docNo: bill.billNo,
+          otherParty: bill.customerName,
+          lines: bill.returnableLines,
+          subtotal: bill.subtotal,
+          discount: bill.discount,
+          total: bill.total,
+          returnedTotal: bill.returnedTotal,
+          amountPaid: bill.amountPaid,
+          hasServiceLines: bill.serviceItems.isNotEmpty,
+        ),
+      ),
+    );
+    if (saved != true) return;
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Return saved. Stock has been updated.')),
+      );
+    }
+  }
+
   Future<void> _cancel() async {
     final reason = TextEditingController();
     final paid = _bill!.amountPaid;
@@ -103,9 +134,12 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'The items go back into stock. '
-              'The bill stays in the history marked as cancelled.',
+            Text(
+              _bill!.hasReturns
+                  ? 'The items not already returned go back into stock. '
+                      'The bill stays in the history marked as cancelled.'
+                  : 'The items go back into stock. '
+                      'The bill stays in the history marked as cancelled.',
             ),
             if (paid > 0) ...[
               const SizedBox(height: 12),
@@ -287,6 +321,15 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
                   ? null
                   : Text(bill.cancelReason!),
             ),
+          )
+        else if (bill.fullyReturned)
+          const Card(
+            color: Color(0xFFFFF1E0),
+            child: ListTile(
+              leading: Icon(Icons.assignment_return, color: Brand.red),
+              title: Text('Fully returned'),
+              subtitle: Text('Every part on this bill came back.'),
+            ),
           ),
         BrandHeader(
           child: Column(
@@ -388,6 +431,13 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
             SectionCard(
               title: title,
               icon: icon,
+              trailing: !items.first.isService && bill.canReturn
+                  ? TextButton.icon(
+                      onPressed: _busy ? null : _returnItems,
+                      icon: const Icon(Icons.assignment_return_outlined, size: 18),
+                      label: const Text('Return'),
+                    )
+                  : null,
               child: Column(
                 children: [
                   for (final item in items)
@@ -399,7 +449,8 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
                         item.isService && item.quantity == 1
                             ? 'Service'
                             : '${item.partNo == null ? '' : '${item.partNo} • '}'
-                                  '${item.quantity} × ${formatMoney(item.unitPrice)}',
+                                  '${item.quantity} × ${formatMoney(item.unitPrice)}'
+                                  '${item.returnedQty > 0 ? ' • ${item.returnedQty} returned' : ''}',
                       ),
                       trailing: Text(
                         formatMoney(item.lineTotal),
@@ -436,7 +487,16 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
                       : null,
                 ),
               ),
-              row('Paid', formatMoney(bill.amountPaid)),
+              if (bill.hasReturns) ...[
+                row('Returned', '- ${formatMoney(bill.returnedTotal)}'),
+                row(
+                  'Total after returns',
+                  formatMoney(bill.netTotal),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ],
+              row(bill.hasReturns ? 'Paid (after refunds)' : 'Paid',
+                  formatMoney(bill.amountPaid)),
               if (bill.hasBalance)
                 row(
                   'Balance due',
@@ -481,6 +541,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
             ],
           ),
         ),
+        ReturnsSection(returns: bill.returns),
       ],
     );
   }

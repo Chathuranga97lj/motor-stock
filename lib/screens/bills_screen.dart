@@ -89,7 +89,8 @@ class _BillsScreenState extends State<BillsScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final completed = _bills.where((b) => !b.cancelled);
-    final total = completed.fold(0.0, (sum, b) => sum + b.total);
+    // After returns.
+    final total = completed.fold(0.0, (sum, b) => sum + b.netTotal);
     // Before bill discounts.
     final parts = completed.fold(0.0, (sum, b) => sum + b.partsTotal);
     final service = completed.fold(0.0, (sum, b) => sum + b.servicesTotal);
@@ -245,12 +246,17 @@ class _BillsScreenState extends State<BillsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    b.cancelled ? 'Cancelled' : formatMoney(b.total),
+                    b.cancelled ? 'Cancelled' : formatMoney(b.netTotal),
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: b.cancelled ? scheme.error : null,
                     ),
                   ),
+                  if (!b.cancelled && b.hasReturns)
+                    Text(
+                      'Returned ${formatMoney(b.returnedTotal)}',
+                      style: const TextStyle(fontSize: 12, color: Brand.muted),
+                    ),
                   if (b.hasBalance)
                     Text(
                       'Due ${formatMoney(b.balance)}',

@@ -155,7 +155,7 @@ class _ToPayScreenState extends State<ToPayScreen> {
                                             ? 'today'
                                             : '${p.daysOld} days ago',
                                         if (p.amountPaid > 0)
-                                          'paid ${formatMoney(p.amountPaid)} of ${formatMoney(p.total)}',
+                                          'paid ${formatMoney(p.amountPaid)} of ${formatMoney(p.netTotal)}',
                                       ].join(' • '),
                                     ),
                                     trailing: Text(formatMoney(p.balance)),

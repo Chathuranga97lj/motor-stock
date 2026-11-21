@@ -105,7 +105,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final active = _purchases.where((p) => !p.cancelled);
-    final purchased = roundMoney(active.fold(0.0, (s, p) => s + p.total));
+    // After returns to suppliers.
+    final purchased = roundMoney(active.fold(0.0, (s, p) => s + p.netTotal));
 
     return Scaffold(
       appBar: AppBar(title: Text('Stock-ins • ${widget.branch.name}')),
@@ -268,12 +269,17 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    p.cancelled ? 'Cancelled' : formatMoney(p.total),
+                    p.cancelled ? 'Cancelled' : formatMoney(p.netTotal),
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: p.cancelled ? scheme.error : null,
                     ),
                   ),
+                  if (!p.cancelled && p.hasReturns)
+                    Text(
+                      'Returned ${formatMoney(p.returnedTotal)}',
+                      style: TextStyle(fontSize: 12, color: scheme.outline),
+                    ),
                   if (p.hasBalance)
                     Text(
                       'To pay ${formatMoney(p.balance)}',
