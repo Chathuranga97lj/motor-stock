@@ -2,6 +2,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/branch.dart';
+import '../utils/text.dart';
 import 'lookup_service.dart';
 
 /// Branches, stock per branch and stock transfers.
@@ -29,12 +30,9 @@ class BranchService {
           {required String name, String? address, String? phone}) =>
       _guard(() => _db.from('branches').update({
             'name': LookupService.normalize(name),
-            'address': _blankToNull(address),
-            'phone': _blankToNull(phone),
+            'address': blankToNull(address),
+            'phone': blankToNull(phone),
           }).eq('id', branch.id));
-
-  static String? _blankToNull(String? s) =>
-      s == null || s.trim().isEmpty ? null : s.trim();
 
   /// The branch this device works in, remembered between app starts.
   Future<String?> loadSelectedBranchId() async {

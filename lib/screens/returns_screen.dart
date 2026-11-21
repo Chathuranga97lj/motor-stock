@@ -5,29 +5,12 @@ import '../models/branch.dart';
 import '../models/stock_return.dart';
 import '../services/return_service.dart';
 import '../theme.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
+import '../utils/period.dart';
 import '../widgets/returns_section.dart';
 import 'bill_detail_screen.dart';
 import 'purchase_detail_screen.dart';
-
-enum _Period {
-  week('7 days'),
-  month('30 days'),
-  all('All');
-
-  const _Period(this.label);
-  final String label;
-
-  DateTime? get from {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return switch (this) {
-      _Period.week => today.subtract(const Duration(days: 6)),
-      _Period.month => today.subtract(const Duration(days: 29)),
-      _Period.all => null,
-    };
-  }
-}
 
 /// Customer and supplier returns at [branch], newest first.
 class ReturnsScreen extends StatefulWidget {
@@ -47,7 +30,7 @@ class ReturnsScreen extends StatefulWidget {
 class _ReturnsScreenState extends State<ReturnsScreen> {
   final _service = ReturnService();
   ReturnKind _kind = ReturnKind.customer;
-  _Period _period = _Period.month;
+  ReportPeriod _period = ReportPeriod.month;
   List<StockReturn> _returns = [];
   bool _loading = true;
   String? _error;
@@ -74,7 +57,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = '$e'.replaceFirst('Exception: ', ''));
+        setState(() => _error = errorMessage(e));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -126,9 +109,9 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-            child: SegmentedButton<_Period>(
+            child: SegmentedButton<ReportPeriod>(
               segments: [
-                for (final p in _Period.values)
+                for (final p in ReportPeriod.withoutToday)
                   ButtonSegment(value: p, label: Text(p.label)),
               ],
               selected: {_period},

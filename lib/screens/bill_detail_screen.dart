@@ -5,6 +5,7 @@ import '../models/stock_return.dart';
 import '../services/bill_pdf.dart';
 import '../services/bill_service.dart';
 import '../theme.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
 import '../widgets/payment_widgets.dart';
 import '../widgets/returns_section.dart';
@@ -64,7 +65,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '$failMessage: ${'$e'.replaceFirst('Exception: ', '')}',
+              '$failMessage: ${errorMessage(e)}',
             ),
           ),
         );

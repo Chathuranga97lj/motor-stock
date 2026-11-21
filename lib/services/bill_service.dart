@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/bill.dart';
+import '../utils/text.dart';
 
 class BillService {
   BillService([SupabaseClient? client])
@@ -102,7 +103,7 @@ class BillService {
         .eq('branch_id', branchId)
         .eq('status', 'completed')
         .neq('payment_status', 'paid');
-    final q = search.replaceAll(RegExp(r'[,()%*]'), ' ').trim();
+    final q = cleanSearch(search);
     if (q.isNotEmpty) {
       query = query.or(
           'customer_name.ilike.%$q%,customer_phone.ilike.%$q%,bike_no.ilike.%$q%');

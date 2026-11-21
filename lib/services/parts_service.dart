@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/part.dart';
+import '../utils/text.dart';
 import 'part_import.dart';
 
 const maxImagesPerPart = 3;
@@ -41,7 +42,7 @@ class PartsService {
   }) async {
     var query = _db.from('parts').select(Part.selectColumns);
     // Strip characters that have meaning in PostgREST filter syntax.
-    final q = search.replaceAll(RegExp(r'[,()%*]'), ' ').trim();
+    final q = cleanSearch(search);
     if (q.isNotEmpty) {
       query = query.or('name.ilike.%$q%,part_no.ilike.%$q%,barcode.ilike.%$q%');
     }

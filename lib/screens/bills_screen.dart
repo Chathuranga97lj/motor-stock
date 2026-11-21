@@ -5,29 +5,9 @@ import '../models/branch.dart';
 import '../services/bill_service.dart';
 import '../utils/money.dart';
 import '../theme.dart';
+import '../utils/period.dart';
 import 'bill_detail_screen.dart';
 import 'new_bill_screen.dart';
-
-enum _Period {
-  today('Today'),
-  week('7 days'),
-  month('30 days'),
-  all('All');
-
-  const _Period(this.label);
-  final String label;
-
-  DateTime? get from {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return switch (this) {
-      _Period.today => today,
-      _Period.week => today.subtract(const Duration(days: 6)),
-      _Period.month => today.subtract(const Duration(days: 29)),
-      _Period.all => null,
-    };
-  }
-}
 
 /// Bills issued at [branch], with the total for the chosen period.
 class BillsScreen extends StatefulWidget {
@@ -46,7 +26,7 @@ class BillsScreen extends StatefulWidget {
 
 class _BillsScreenState extends State<BillsScreen> {
   final _service = BillService();
-  _Period _period = _Period.today;
+  ReportPeriod _period = ReportPeriod.today;
   List<Bill> _bills = [];
   // Money received in the period, including payments on older credit bills.
   double _collected = 0;
@@ -112,9 +92,9 @@ class _BillsScreenState extends State<BillsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: SegmentedButton<_Period>(
+            child: SegmentedButton<ReportPeriod>(
               segments: [
-                for (final p in _Period.values)
+                for (final p in ReportPeriod.values)
                   ButtonSegment(value: p, label: Text(p.label)),
               ],
               selected: {_period},

@@ -6,29 +6,9 @@ import '../models/purchase.dart';
 import '../services/purchase_service.dart';
 import '../utils/money.dart';
 import '../theme.dart';
+import '../utils/period.dart';
 import 'purchase_detail_screen.dart';
 import 'stock_in_screen.dart';
-
-enum _Period {
-  today('Today'),
-  week('7 days'),
-  month('30 days'),
-  all('All');
-
-  const _Period(this.label);
-  final String label;
-
-  DateTime? get from {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return switch (this) {
-      _Period.today => today,
-      _Period.week => today.subtract(const Duration(days: 6)),
-      _Period.month => today.subtract(const Duration(days: 29)),
-      _Period.all => null,
-    };
-  }
-}
 
 /// Stock-in history of [branch], with Purchased and Paid totals.
 class PurchasesScreen extends StatefulWidget {
@@ -47,7 +27,7 @@ class PurchasesScreen extends StatefulWidget {
 
 class _PurchasesScreenState extends State<PurchasesScreen> {
   final _service = PurchaseService();
-  _Period _period = _Period.month;
+  ReportPeriod _period = ReportPeriod.month;
   List<Supplier> _suppliers = [];
   String? _supplierId;
   List<Purchase> _purchases = [];
@@ -125,9 +105,9 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: SegmentedButton<_Period>(
+            child: SegmentedButton<ReportPeriod>(
               segments: [
-                for (final p in _Period.values)
+                for (final p in ReportPeriod.values)
                   ButtonSegment(value: p, label: Text(p.label)),
               ],
               selected: {_period},

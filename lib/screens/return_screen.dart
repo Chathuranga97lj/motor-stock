@@ -4,6 +4,7 @@ import '../models/bill.dart';
 import '../models/stock_return.dart';
 import '../services/return_service.dart';
 import '../theme.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
 
 /// Return parts from a bill (customer return) or a stock-in (supplier
@@ -149,7 +150,7 @@ class _ReturnScreenState extends State<ReturnScreen> {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(
-              'Could not save the return: ${'$e'.replaceFirst('Exception: ', '')}'),
+              'Could not save the return: ${errorMessage(e)}'),
         ));
       }
     }

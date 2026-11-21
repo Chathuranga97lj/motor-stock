@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:flutter/services.dart';
 
 import '../models/bill.dart';
 import '../models/branch.dart';
@@ -10,6 +9,7 @@ import '../services/bill_service.dart';
 import '../services/branch_service.dart';
 import '../services/lookup_service.dart';
 import '../services/purchase_service.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
 import '../widgets/lookup_widgets.dart';
 
@@ -71,7 +71,7 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(errorMessage(e))),
       );
     }
   }
@@ -248,7 +248,7 @@ class _ManageLookupsScreenState extends State<ManageLookupsScreen> {
                   decimal: true,
                 ),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  moneyInputFormatter,
                 ],
                 decoration: InputDecoration(
                   labelText: 'Standard charge ($currencySymbol)',

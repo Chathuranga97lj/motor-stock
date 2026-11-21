@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 const currencySymbol = 'Rs.';
 
 /// 1234567.5 -> "Rs. 1,234,567.50"
@@ -15,8 +17,15 @@ String formatMoney(num amount, {bool symbol = true}) {
   return symbol ? '$currencySymbol $text' : text;
 }
 
+/// Money typed into a field: digits with up to 2 decimals.
+final moneyInputFormatter =
+    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'));
+
+String _two(int n) => n.toString().padLeft(2, '0');
+
+/// 2026-11-05
+String formatDate(DateTime d) => '${d.year}-${_two(d.month)}-${_two(d.day)}';
+
 /// 2026-11-05 14:07
-String formatDateTime(DateTime d) {
-  String two(int n) => n.toString().padLeft(2, '0');
-  return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
-}
+String formatDateTime(DateTime d) =>
+    '${formatDate(d)} ${_two(d.hour)}:${_two(d.minute)}';

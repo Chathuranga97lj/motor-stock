@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/part.dart';
 import '../services/bill_service.dart';
 import '../services/parts_service.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
 import '../widgets/barcode_scanner.dart';
 import '../widgets/part_picker.dart';
@@ -216,7 +216,7 @@ class _NewBillScreenState extends State<NewBillScreen> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$e'.replaceFirst('Exception: ', ''))));
+          content: Text(errorMessage(e))));
     }
   }
 
@@ -360,7 +360,7 @@ class _NewBillScreenState extends State<NewBillScreen> {
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                    moneyInputFormatter,
                   ],
                   decoration: InputDecoration(
                     labelText: 'Amount paid now ($currencySymbol)',
@@ -376,7 +376,7 @@ class _NewBillScreenState extends State<NewBillScreen> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  moneyInputFormatter,
                 ],
                 decoration: InputDecoration(
                   labelText: 'Discount on whole bill ($currencySymbol)',
@@ -562,8 +562,7 @@ class _PartLineCardState extends State<_PartLineCard> {
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,2}')),
+                        moneyInputFormatter,
                       ],
                       decoration: InputDecoration(
                         labelText: 'Price each ($currencySymbol)',
@@ -677,7 +676,7 @@ class _ServiceLineCardState extends State<_ServiceLineCard> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                  moneyInputFormatter,
                 ],
                 decoration: InputDecoration(
                     labelText: 'Charge ($currencySymbol)', isDense: true),
