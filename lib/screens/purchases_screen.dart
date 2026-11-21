@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/purchase.dart';
+import '../models/totals.dart';
 import '../services/purchase_service.dart';
 import '../utils/latest_request.dart';
 import '../utils/money.dart';
@@ -32,7 +32,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   List<Supplier> _suppliers = [];
   String? _supplierId;
   List<Purchase> _purchases = [];
-  double _paid = 0;
+  PurchaseTotals _totals = const PurchaseTotals();
   bool _loading = true;
   String? _error;
   final _latest = LatestRequest();
@@ -53,22 +53,30 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
     final request = _latest.start();
     setState(() => _loading = true);
     try {
-      final (purchases, paid) = await (
+      final branchId = widget.branch.id;
+      final from = _period.from;
+      final supplierId = _supplierId;
+      final (purchases, totals) = await (
         _service.fetchPurchases(
-          branchId: widget.branch.id,
-          from: _period.from,
-          supplierId: _supplierId,
+          branchId: branchId,
+          from: from,
+          supplierId: supplierId,
         ),
-        _service.fetchPaid(
-          branchId: widget.branch.id,
-          from: _period.from,
-          supplierId: _supplierId,
-        ),
+        _service.fetchTotals(
+          branchId: branchId,
+          from: from,
+          supplierId: supplierId,
+        ).catchError((_) => null),
       ).wait;
+      // Without migration 013 (or if the totals fail), add up on the phone.
+      final t = totals ??
+          PurchaseTotals.fromPurchases(purchases,
+              paid: await _service.fetchPaid(
+                  branchId: branchId, from: from, supplierId: supplierId));
       if (mounted && _latest.isLatest(request)) {
         setState(() {
           _purchases = purchases;
-          _paid = paid;
+          _totals = t;
           _error = null;
         });
       }
@@ -91,9 +99,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final active = _purchases.where((p) => !p.cancelled);
-    // After returns to suppliers.
-    final purchased = roundMoney(active.fold(0.0, (s, p) => s + p.netTotal));
+    final t = _totals;
 
     return Scaffold(
       appBar: AppBar(title: Text('Stock-ins • ${widget.branch.name}')),
@@ -156,8 +162,8 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   child: _totalCard(
                     theme,
                     'Purchased',
-                    purchased,
-                    '${active.length} stock-ins',
+                    t.purchased, // After returns to suppliers.
+                    '${t.stockIns} stock-ins',
                     theme.colorScheme.primaryContainer,
                   ),
                 ),
@@ -166,7 +172,7 @@ class _PurchasesScreenState extends State<PurchasesScreen> {
                   child: _totalCard(
                     theme,
                     'Paid to suppliers',
-                    _paid,
+                    t.paid,
                     'money given',
                     theme.colorScheme.secondaryContainer,
                   ),

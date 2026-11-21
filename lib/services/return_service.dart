@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/bill.dart';
 import '../models/stock_return.dart';
+import '../models/totals.dart';
+import '../utils/errors.dart';
 
 /// Customer and supplier returns (supabase/012_returns.sql).
 class ReturnService {
@@ -57,6 +59,27 @@ class ReturnService {
       final rows = await query.order('created_at', ascending: false).limit(500);
       return rows.map((r) => StockReturn.fromJson(r, kind)).toList();
     } on PostgrestException catch (e) {
+      throw Exception(_friendly(e));
+    }
+  }
+
+  /// Count, value and refunds of [branchId]'s returns since [from] (all
+  /// time if null), added up in the database. Null when
+  /// supabase/013_period_totals.sql has not been run yet.
+  Future<ReturnTotals?> fetchTotals(
+    ReturnKind kind, {
+    required String branchId,
+    DateTime? from,
+  }) async {
+    try {
+      final result = await _db.rpc('return_totals', params: {
+        'p_kind': kind.name,
+        'p_branch_id': branchId,
+        'p_from': from?.toUtc().toIso8601String(),
+      });
+      return ReturnTotals.fromJson(Map<String, dynamic>.from(result as Map));
+    } on PostgrestException catch (e) {
+      if (isMissingFunction(e)) return null;
       throw Exception(_friendly(e));
     }
   }

@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/bill.dart';
 import '../models/purchase.dart';
+import '../models/totals.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
 import '../utils/text.dart';
 
@@ -167,6 +169,27 @@ class PurchaseService {
       // Returns not set up yet (migration 012).
     }
     return roundMoney(paid - refunded);
+  }
+
+  /// Purchased and paid at [branchId] since [from] (all time if null),
+  /// optionally for one supplier, added up in the database. Null when
+  /// supabase/013_period_totals.sql has not been run yet.
+  Future<PurchaseTotals?> fetchTotals({
+    required String branchId,
+    DateTime? from,
+    String? supplierId,
+  }) async {
+    try {
+      final result = await _db.rpc('purchase_totals', params: {
+        'p_branch_id': branchId,
+        'p_from': from?.toUtc().toIso8601String(),
+        'p_supplier_id': supplierId,
+      });
+      return PurchaseTotals.fromJson(Map<String, dynamic>.from(result as Map));
+    } on PostgrestException catch (e) {
+      if (isMissingFunction(e)) return null;
+      throw Exception(e.message);
+    }
   }
 
   /// All branches' stock-ins still owed to suppliers, oldest first.

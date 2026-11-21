@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/bill.dart';
+import '../models/totals.dart';
+import '../utils/errors.dart';
 import '../utils/text.dart';
 
 class BillService {
@@ -142,6 +144,25 @@ class BillService {
       // Returns not set up yet (migration 012): no refunds to take off.
     }
     return roundMoney(paid - refunded);
+  }
+
+  /// Totals of [branchId] since [from] (all time if null), added up in the
+  /// database so they are right however many bills there are. Null when
+  /// supabase/013_period_totals.sql has not been run yet.
+  Future<BillTotals?> fetchTotals({
+    required String branchId,
+    DateTime? from,
+  }) async {
+    try {
+      final result = await _db.rpc('bill_totals', params: {
+        'p_branch_id': branchId,
+        'p_from': from?.toUtc().toIso8601String(),
+      });
+      return BillTotals.fromJson(Map<String, dynamic>.from(result as Map));
+    } on PostgrestException catch (e) {
+      if (isMissingFunction(e)) return null;
+      throw Exception(e.message);
+    }
   }
 
   Future<Bill> fetchBill(String id) async {

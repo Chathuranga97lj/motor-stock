@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/bill.dart';
 import '../models/branch.dart';
+import '../models/totals.dart';
 import '../services/bill_service.dart';
 import '../utils/latest_request.dart';
 import '../utils/money.dart';
@@ -29,8 +30,9 @@ class _BillsScreenState extends State<BillsScreen> {
   final _service = BillService();
   ReportPeriod _period = ReportPeriod.today;
   List<Bill> _bills = [];
-  // Money received in the period, including payments on older credit bills.
-  double _collected = 0;
+  // Collected = money received in the period, including payments on older
+  // credit bills.
+  BillTotals _totals = const BillTotals();
   bool _loading = true;
   String? _error;
   final _latest = LatestRequest();
@@ -45,14 +47,22 @@ class _BillsScreenState extends State<BillsScreen> {
     final request = _latest.start();
     setState(() => _loading = true);
     try {
-      final (bills, collected) = await (
-        _service.fetchBills(branchId: widget.branch.id, from: _period.from),
-        _service.fetchCollected(branchId: widget.branch.id, from: _period.from),
+      final branchId = widget.branch.id;
+      final from = _period.from;
+      final (bills, totals) = await (
+        _service.fetchBills(branchId: branchId, from: from),
+        _service.fetchTotals(branchId: branchId, from: from)
+            .catchError((_) => null),
       ).wait;
+      // Without migration 013 (or if the totals fail), add up on the phone.
+      final t = totals ??
+          BillTotals.fromBills(bills,
+              collected: await _service.fetchCollected(
+                  branchId: branchId, from: from));
       if (mounted && _latest.isLatest(request)) {
         setState(() {
           _bills = bills;
-          _collected = collected;
+          _totals = t;
           _error = null;
         });
       }
@@ -75,12 +85,7 @@ class _BillsScreenState extends State<BillsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final completed = _bills.where((b) => !b.cancelled);
-    // After returns.
-    final total = completed.fold(0.0, (sum, b) => sum + b.netTotal);
-    // Before bill discounts.
-    final parts = completed.fold(0.0, (sum, b) => sum + b.partsTotal);
-    final service = completed.fold(0.0, (sum, b) => sum + b.servicesTotal);
+    final t = _totals;
 
     return Scaffold(
       appBar: AppBar(title: Text('Bills • ${widget.branch.name}')),
@@ -120,10 +125,11 @@ class _BillsScreenState extends State<BillsScreen> {
                   child: _totalCard(
                     theme,
                     label: 'Sales',
-                    value: total,
+                    // After returns.
+                    value: t.sales,
                     note:
-                        '${completed.length} bills'
-                        '${_bills.length > completed.length ? ', ${_bills.length - completed.length} cancelled' : ''}',
+                        '${t.bills} bills'
+                        '${t.cancelled > 0 ? ', ${t.cancelled} cancelled' : ''}',
                     color: theme.colorScheme.primaryContainer,
                   ),
                 ),
@@ -132,7 +138,7 @@ class _BillsScreenState extends State<BillsScreen> {
                   child: _totalCard(
                     theme,
                     label: 'Collected',
-                    value: _collected,
+                    value: t.collected,
                     note: 'money received',
                     color: theme.colorScheme.secondaryContainer,
                   ),
@@ -146,11 +152,12 @@ class _BillsScreenState extends State<BillsScreen> {
               children: [
                 const Icon(Icons.inventory_2_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Parts ${formatMoney(parts)}'),
+                // Before bill discounts.
+                Text('Parts ${formatMoney(t.parts)}'),
                 const SizedBox(width: 16),
                 const Icon(Icons.build_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Service ${formatMoney(service)}'),
+                Text('Service ${formatMoney(t.services)}'),
               ],
             ),
           ),
