@@ -2,32 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../models/bill.dart';
 import '../models/branch.dart';
+import '../models/totals.dart';
 import '../services/bill_service.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import '../theme.dart';
+import '../utils/period.dart';
 import 'bill_detail_screen.dart';
 import 'new_bill_screen.dart';
-
-enum _Period {
-  today('Today'),
-  week('7 days'),
-  month('30 days'),
-  all('All');
-
-  const _Period(this.label);
-  final String label;
-
-  DateTime? get from {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return switch (this) {
-      _Period.today => today,
-      _Period.week => today.subtract(const Duration(days: 6)),
-      _Period.month => today.subtract(const Duration(days: 29)),
-      _Period.all => null,
-    };
-  }
-}
 
 /// Bills issued at [branch], with the total for the chosen period.
 class BillsScreen extends StatefulWidget {
@@ -46,12 +28,14 @@ class BillsScreen extends StatefulWidget {
 
 class _BillsScreenState extends State<BillsScreen> {
   final _service = BillService();
-  _Period _period = _Period.today;
+  ReportPeriod _period = ReportPeriod.today;
   List<Bill> _bills = [];
-  // Money received in the period, including payments on older credit bills.
-  double _collected = 0;
+  // Collected = money received in the period, including payments on older
+  // credit bills.
+  BillTotals _totals = const BillTotals();
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -60,23 +44,36 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
-      final (bills, collected) = await (
-        _service.fetchBills(branchId: widget.branch.id, from: _period.from),
-        _service.fetchCollected(branchId: widget.branch.id, from: _period.from),
+      final branchId = widget.branch.id;
+      final from = _period.from;
+      final (bills, totals) = await (
+        _service.fetchBills(branchId: branchId, from: from),
+        _service.fetchTotals(branchId: branchId, from: from)
+            .catchError((_) => null),
       ).wait;
-      if (mounted) {
+      // Without migration 013 (or if the totals fail), add up on the phone.
+      final t = totals ??
+          BillTotals.fromBills(bills,
+              collected: await _service.fetchCollected(
+                  branchId: branchId, from: from));
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _bills = bills;
-          _collected = collected;
+          _totals = t;
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load bills: $e');
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = 'Could not load bills: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -88,12 +85,7 @@ class _BillsScreenState extends State<BillsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final completed = _bills.where((b) => !b.cancelled);
-    // After returns.
-    final total = completed.fold(0.0, (sum, b) => sum + b.netTotal);
-    // Before bill discounts.
-    final parts = completed.fold(0.0, (sum, b) => sum + b.partsTotal);
-    final service = completed.fold(0.0, (sum, b) => sum + b.servicesTotal);
+    final t = _totals;
 
     return Scaffold(
       appBar: AppBar(title: Text('Bills • ${widget.branch.name}')),
@@ -112,9 +104,9 @@ class _BillsScreenState extends State<BillsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: SegmentedButton<_Period>(
+            child: SegmentedButton<ReportPeriod>(
               segments: [
-                for (final p in _Period.values)
+                for (final p in ReportPeriod.values)
                   ButtonSegment(value: p, label: Text(p.label)),
               ],
               selected: {_period},
@@ -133,10 +125,11 @@ class _BillsScreenState extends State<BillsScreen> {
                   child: _totalCard(
                     theme,
                     label: 'Sales',
-                    value: total,
+                    // After returns.
+                    value: t.sales,
                     note:
-                        '${completed.length} bills'
-                        '${_bills.length > completed.length ? ', ${_bills.length - completed.length} cancelled' : ''}',
+                        '${t.bills} bills'
+                        '${t.cancelled > 0 ? ', ${t.cancelled} cancelled' : ''}',
                     color: theme.colorScheme.primaryContainer,
                   ),
                 ),
@@ -145,7 +138,7 @@ class _BillsScreenState extends State<BillsScreen> {
                   child: _totalCard(
                     theme,
                     label: 'Collected',
-                    value: _collected,
+                    value: t.collected,
                     note: 'money received',
                     color: theme.colorScheme.secondaryContainer,
                   ),
@@ -159,11 +152,12 @@ class _BillsScreenState extends State<BillsScreen> {
               children: [
                 const Icon(Icons.inventory_2_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Parts ${formatMoney(parts)}'),
+                // Before bill discounts.
+                Text('Parts ${formatMoney(t.parts)}'),
                 const SizedBox(width: 16),
                 const Icon(Icons.build_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Service ${formatMoney(service)}'),
+                Text('Service ${formatMoney(t.services)}'),
               ],
             ),
           ),

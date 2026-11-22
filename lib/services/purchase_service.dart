@@ -2,6 +2,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/bill.dart';
 import '../models/purchase.dart';
+import '../models/totals.dart';
+import '../utils/errors.dart';
+import '../utils/money.dart';
+import '../utils/text.dart';
 
 /// Suppliers and stock-ins (purchases).
 class PurchaseService {
@@ -32,9 +36,9 @@ class PurchaseService {
             .from('suppliers')
             .insert({
               'name': name.trim(),
-              'phone': _blank(phone),
-              'address': _blank(address),
-              'note': _blank(note),
+              'phone': blankToNull(phone),
+              'address': blankToNull(address),
+              'note': blankToNull(note),
             })
             .select()
             .single();
@@ -50,9 +54,9 @@ class PurchaseService {
   }) =>
       _guard(() => _db.from('suppliers').update({
             'name': name.trim(),
-            'phone': _blank(phone),
-            'address': _blank(address),
-            'note': _blank(note),
+            'phone': blankToNull(phone),
+            'address': blankToNull(address),
+            'note': blankToNull(note),
           }).eq('id', s.id));
 
   Future<void> deleteSupplier(Supplier s) => _guard(
@@ -87,7 +91,7 @@ class PurchaseService {
               },
           ],
           'p_invoice_no': invoiceNo,
-          'p_invoice_date': invoiceDate == null ? null : _date(invoiceDate),
+          'p_invoice_date': invoiceDate == null ? null : formatDate(invoiceDate),
           'p_discount': discount,
           'p_payment_method': paymentMethod.value,
           'p_amount_paid': amountPaid,
@@ -167,6 +171,27 @@ class PurchaseService {
     return roundMoney(paid - refunded);
   }
 
+  /// Purchased and paid at [branchId] since [from] (all time if null),
+  /// optionally for one supplier, added up in the database. Null when
+  /// supabase/013_period_totals.sql has not been run yet.
+  Future<PurchaseTotals?> fetchTotals({
+    required String branchId,
+    DateTime? from,
+    String? supplierId,
+  }) async {
+    try {
+      final result = await _db.rpc('purchase_totals', params: {
+        'p_branch_id': branchId,
+        'p_from': from?.toUtc().toIso8601String(),
+        'p_supplier_id': supplierId,
+      });
+      return PurchaseTotals.fromJson(Map<String, dynamic>.from(result as Map));
+    } on PostgrestException catch (e) {
+      if (isMissingFunction(e)) return null;
+      throw Exception(e.message);
+    }
+  }
+
   /// All branches' stock-ins still owed to suppliers, oldest first.
   Future<List<Purchase>> fetchToPay() async {
     final rows = await _db
@@ -203,12 +228,6 @@ class PurchaseService {
 
   Future<void> cancelPurchase(String id, {String? reason}) => _guard(() => _db
       .rpc('cancel_purchase', params: {'p_purchase_id': id, 'p_reason': reason}));
-
-  static String? _blank(String? s) =>
-      s == null || s.trim().isEmpty ? null : s.trim();
-
-  static String _date(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   Future<T> _guard<T>(Future<T> Function() action,
       {String? foreignKeyMessage}) async {

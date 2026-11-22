@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../models/branch.dart';
 import '../models/part.dart';
 import '../services/branch_service.dart';
+import '../utils/errors.dart';
 
 /// What a completed transfer moved.
 typedef TransferResult = ({String fromBranchId, String toBranchId, int quantity});
@@ -103,7 +104,7 @@ class _TransferFormState extends State<_TransferForm> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = '$e'.replaceFirst('Exception: ', '');
+          _error = errorMessage(e);
         });
       }
     }

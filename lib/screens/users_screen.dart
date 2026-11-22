@@ -6,6 +6,7 @@ import '../models/profile.dart';
 import '../services/branch_service.dart';
 import '../services/profile_service.dart';
 import '../theme.dart';
+import '../utils/errors.dart';
 import 'add_user_screen.dart';
 
 /// Super admin: add sign-in accounts and give each a role and, for admins,
@@ -69,7 +70,7 @@ class _UsersScreenState extends State<UsersScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))),
+        SnackBar(content: Text(errorMessage(e))),
       );
     }
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../models/bill.dart';
 import '../utils/money.dart';
@@ -84,7 +83,7 @@ class _PaymentDialogState extends State<_PaymentDialog> {
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                moneyInputFormatter,
               ],
               decoration: InputDecoration(
                 labelText: 'Amount ($currencySymbol)',

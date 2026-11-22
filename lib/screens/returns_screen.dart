@@ -1,33 +1,17 @@
 import 'package:flutter/material.dart';
 
-import '../models/bill.dart';
 import '../models/branch.dart';
 import '../models/stock_return.dart';
+import '../models/totals.dart';
 import '../services/return_service.dart';
 import '../theme.dart';
+import '../utils/errors.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
+import '../utils/period.dart';
 import '../widgets/returns_section.dart';
 import 'bill_detail_screen.dart';
 import 'purchase_detail_screen.dart';
-
-enum _Period {
-  week('7 days'),
-  month('30 days'),
-  all('All');
-
-  const _Period(this.label);
-  final String label;
-
-  DateTime? get from {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return switch (this) {
-      _Period.week => today.subtract(const Duration(days: 6)),
-      _Period.month => today.subtract(const Duration(days: 29)),
-      _Period.all => null,
-    };
-  }
-}
 
 /// Customer and supplier returns at [branch], newest first.
 class ReturnsScreen extends StatefulWidget {
@@ -47,10 +31,12 @@ class ReturnsScreen extends StatefulWidget {
 class _ReturnsScreenState extends State<ReturnsScreen> {
   final _service = ReturnService();
   ReturnKind _kind = ReturnKind.customer;
-  _Period _period = _Period.month;
+  ReportPeriod _period = ReportPeriod.month;
   List<StockReturn> _returns = [];
+  ReturnTotals _totals = const ReturnTotals();
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -59,25 +45,35 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
-      final list = await _service.fetchReturns(
-        _kind,
-        branchId: widget.branch.id,
-        from: _period.from,
-      );
-      if (mounted) {
+      final kind = _kind;
+      final branchId = widget.branch.id;
+      final from = _period.from;
+      // Totals that fail to load are added up on the phone instead.
+      final totalsLoad = _service
+          .fetchTotals(kind, branchId: branchId, from: from)
+          .catchError((_) => null);
+      final list =
+          await _service.fetchReturns(kind, branchId: branchId, from: from);
+      final totals = await totalsLoad;
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _returns = list;
+          // Without migration 013 (or if the totals fail), add up on the phone.
+          _totals = totals ?? ReturnTotals.fromReturns(list);
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted) {
-        setState(() => _error = '$e'.replaceFirst('Exception: ', ''));
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = errorMessage(e));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -94,8 +90,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final value = roundMoney(_returns.fold(0.0, (s, r) => s + r.value));
-    final refunded = roundMoney(_returns.fold(0.0, (s, r) => s + r.refundAmount));
+    final t = _totals;
     final customer = _kind == ReturnKind.customer;
     return Scaffold(
       appBar: AppBar(title: Text('Returns • ${widget.branch.name}')),
@@ -126,9 +121,9 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
-            child: SegmentedButton<_Period>(
+            child: SegmentedButton<ReportPeriod>(
               segments: [
-                for (final p in _Period.values)
+                for (final p in ReportPeriod.withoutToday)
                   ButtonSegment(value: p, label: Text(p.label)),
               ],
               selected: {_period},
@@ -148,9 +143,9 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
                   Expanded(
                     child: StatBox(
                       label: 'Returned',
-                      value: formatMoney(value),
-                      note: '${_returns.length} '
-                          '${_returns.length == 1 ? 'return' : 'returns'}',
+                      value: formatMoney(t.value),
+                      note: '${t.returns} '
+                          '${t.returns == 1 ? 'return' : 'returns'}',
                       color: Brand.red,
                       icon: Icons.assignment_return_outlined,
                     ),
@@ -159,7 +154,7 @@ class _ReturnsScreenState extends State<ReturnsScreen> {
                   Expanded(
                     child: StatBox(
                       label: customer ? 'Refunded' : 'Refunds received',
-                      value: formatMoney(refunded),
+                      value: formatMoney(t.refunded),
                       note: customer ? 'money given back' : 'money back',
                       color: Brand.blue,
                       icon: Icons.payments_outlined,

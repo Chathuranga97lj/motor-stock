@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../models/bill.dart';
 import '../models/branch.dart';
 import '../services/bill_service.dart';
+import '../utils/latest_request.dart';
 import '../utils/money.dart';
 import '../theme.dart';
 import 'bill_detail_screen.dart';
@@ -31,6 +32,7 @@ class _ToCollectScreenState extends State<ToCollectScreen> {
   List<Bill> _bills = [];
   bool _loading = true;
   String? _error;
+  final _latest = LatestRequest();
 
   @override
   void initState() {
@@ -46,22 +48,27 @@ class _ToCollectScreenState extends State<ToCollectScreen> {
   }
 
   Future<void> _load() async {
+    final request = _latest.start();
     setState(() => _loading = true);
     try {
       final bills = await _service.fetchOutstanding(
         branchId: widget.branch.id,
         search: _search.text,
       );
-      if (mounted) {
+      if (mounted && _latest.isLatest(request)) {
         setState(() {
           _bills = bills;
           _error = null;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _error = 'Could not load: $e');
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _error = 'Could not load: $e');
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && _latest.isLatest(request)) {
+        setState(() => _loading = false);
+      }
     }
   }
 

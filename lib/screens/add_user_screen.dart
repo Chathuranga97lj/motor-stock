@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../models/branch.dart';
 import '../models/profile.dart';
 import '../services/profile_service.dart';
+import '../utils/errors.dart';
 
 /// Super admin: create a new login with its role and branch.
 /// Returns true when a user was added.
@@ -73,7 +74,7 @@ class _AddUserScreenState extends State<AddUserScreen> {
       if (mounted) {
         setState(() {
           _saving = false;
-          _error = '$e'.replaceFirst('Exception: ', '');
+          _error = errorMessage(e);
         });
       }
     }

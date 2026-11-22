@@ -7,6 +7,7 @@ import '../models/lookup.dart';
 import '../models/part.dart';
 import '../services/lookup_service.dart';
 import '../services/parts_service.dart';
+import '../utils/money.dart';
 import '../widgets/barcode_scanner.dart';
 import '../widgets/lookup_widgets.dart';
 import '../widgets/transfer_sheet.dart';
@@ -475,7 +476,7 @@ class _PartFormScreenState extends State<PartFormScreen> {
         label,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+          moneyInputFormatter,
         ],
       );
 }

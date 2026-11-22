@@ -7,13 +7,12 @@ import '../models/part.dart';
 import '../models/purchase.dart';
 import '../services/parts_service.dart';
 import '../services/purchase_service.dart';
+import '../utils/errors.dart';
 import '../utils/money.dart';
 import '../widgets/barcode_scanner.dart';
 import '../widgets/part_picker.dart';
 import 'part_form_screen.dart';
 import 'purchase_detail_screen.dart';
-
-final _moneyInput = FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'));
 
 /// Stock arriving from a supplier: supplier, invoice, parts with costs,
 /// and how much was paid now. Saving adds the stock to [branch].
@@ -145,9 +144,10 @@ class _StockInScreenState extends State<StockInScreen> {
     try {
       final s = await _service.addSupplier(name: values.$1, phone: values.$2);
       await _loadSuppliers();
+      if (!mounted) return;
       setState(() => _supplierId = s.id);
     } catch (e) {
-      _snack('$e'.replaceFirst('Exception: ', ''));
+      _snack(errorMessage(e));
     }
   }
 
@@ -229,6 +229,7 @@ class _StockInScreenState extends State<StockInScreen> {
     if (id == null) return;
     try {
       final part = await _partsService.fetchPart(id);
+      if (!mounted) return;
       setState(() => _lines.add(PurchaseLine(part)));
     } catch (e) {
       _snack('Part saved, but could not add it here: $e');
@@ -291,7 +292,7 @@ class _StockInScreenState extends State<StockInScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      _snack('$e'.replaceFirst('Exception: ', ''));
+      _snack(errorMessage(e));
     }
   }
 
@@ -442,7 +443,7 @@ class _StockInScreenState extends State<StockInScreen> {
                 controller: _discount,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [_moneyInput],
+                inputFormatters: [moneyInputFormatter],
                 decoration: InputDecoration(
                   labelText: 'Discount on invoice ($currencySymbol)',
                   errorText: _discountError,
@@ -470,7 +471,7 @@ class _StockInScreenState extends State<StockInScreen> {
                   controller: _amountPaid,
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [_moneyInput],
+                  inputFormatters: [moneyInputFormatter],
                   decoration: InputDecoration(
                     labelText: 'Amount paid now ($currencySymbol)',
                     hintText: 'Full amount',
@@ -639,7 +640,7 @@ class _LineCardState extends State<_LineCard> {
                       controller: _cost,
                       keyboardType:
                           const TextInputType.numberWithOptions(decimal: true),
-                      inputFormatters: [_moneyInput],
+                      inputFormatters: [moneyInputFormatter],
                       decoration: const InputDecoration(
                           labelText: 'Unit cost', isDense: true),
                       onChanged: (v) {
